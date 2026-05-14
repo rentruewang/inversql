@@ -1,0 +1,64 @@
+[project]
+name = "inversql"
+description = "Default template for PDM package"
+authors = [
+    {name = "RenChu Wang", email = "patrick1031wang@gmail.com"},
+]
+dependencies = ["scikit-learn>=1.6.1", "numpy>=2.2.6", "pandas>=2.2.3", "rich>=14.0.0", "textual>=3.2.0", "pypika>=0.48.9"]
+requires-python = ">=3.14,<3.15"
+readme = "README.md"
+license = {text = "MIT"}
+dynamic = ["version"]
+
+[build-system]
+requires = ["setuptools", "wheel", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+    "pytest-cov>=6.1.1",
+    "pytest-xdist>=3.7.0",
+    "pytest-sugar>=1.0.0",
+    "autoflake>=2.3.1",
+    "black>=25.1.0",
+    "isort>=6.0.1",
+    "mypy>=1.16.0",
+    "pre-commit>=4.2.0",
+    "pip>=25.1.1",
+    "ipython>=9.3.0",
+    "nox[pbs]>=2026.2.9",
+]
+
+[tool.autoflake]
+in-place = true
+recursive = true
+exclude = "__init__.py"
+expand-star-imports = true
+remove-all-unused-imports = true
+remove-duplicate-keys = true
+
+[tool.black]
+line-length = 88
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+show_error_codes = true
+check_untyped_defs = true
+
+# Skipping analysis for some modules because they are not typed.
+[[tool.mypy.overrides]]
+module = [
+    "pypika.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = [
+    "-v",
+    "--import-mode=importlib",
+]

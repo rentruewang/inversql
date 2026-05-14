@@ -1,0 +1,32 @@
+name: Unit Testing
+on: [push]
+jobs:
+  unit-test:
+    name: 🧪 Unit Testing
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🔔 Check out
+        uses: actions/checkout@v6
+
+      - name: ⬇️ Python PDM
+        uses: pdm-project/setup-pdm@v4
+        with:
+          cache: true
+
+      - name: 🏃 pytest
+        run: pip install nox[pbs] && nox -rs testing
+
+  build:
+    name: 👷 Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🔔 Check out
+        uses: actions/checkout@v6
+
+      - name: ⬇️ Python PDM
+        uses: pdm-project/setup-pdm@v4
+        with:
+          cache: true
+
+      - name: 🏃 pytest
+        run: pip install nox[pbs] && nox -rs build

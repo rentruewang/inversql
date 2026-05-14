@@ -1,0 +1,26 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - v*
+
+jobs:
+  pypi-publish:
+    name: ⬆️ Upload release to PyPI
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
+
+    steps:
+      - name: 🔔 Check out
+        uses: actions/checkout@v6
+
+      - name: ⬇️ Python PDM
+        uses: pdm-project/setup-pdm@v4
+        with:
+          cache: true
+
+      - name: ⚙️ Release
+        run: pip install nox[pbs] && nox -rs publish
