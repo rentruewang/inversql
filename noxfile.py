@@ -9,71 +9,100 @@ import nox
 
 @nox.session
 def publish(session: nox.Session):
-    "Nox `publish` command. Calls `pdm publish`."
-    commands(session).publish()
+    pdm(session).publish()
 
 
 @nox.session
 def build(session: nox.Session):
-    "Nox `build` command. Calls `pdm build`."
-    commands(session).build()
+    pdm(session).build()
 
 
 @nox.session
 def pre_commit(session: nox.Session):
-    "Runs the pre-commit commands."
-
     formatting(session)
     typing(session)
 
 
 @nox.session
 def testing(session: nox.Session):
-    "Nox `testing` command. Calls `pytest` command. Runs in multiple python versions."
-    commands(session).test()
+    _ = pdm(session).run("pytest", *session.posargs)
 
 
 @nox.session
 def formatting(session: nox.Session):
-    "Nox `formatting` command. Calls `autoflake`, `isort`, `black`, in that order."
     autoflake(session)
     isort(session)
     black(session)
+    nb_clean(session)
+
+
+@nox.session
+def formatting_check(session: nox.Session):
+    autoflake_check(session)
+    isort_check(session)
+    black_check(session)
+    nb_check(session)
 
 
 @nox.session
 def autoflake(session: nox.Session):
-    "Nox `autoflake` command. Calls `autoflake` command."
-    commands(session).autoflake()
+    _cmd(session, "autoflake", False)
+
+
+@nox.session
+def autoflake_check(session: nox.Session):
+    _cmd(session, "autoflake", True)
 
 
 @nox.session
 def isort(session: nox.Session):
-    "Nox `isort` command. Calls `isort` command."
-    commands(session).isort()
+    _cmd(session, "isort", False)
+
+
+@nox.session
+def isort_check(session: nox.Session):
+    _cmd(session, "isort", True)
 
 
 @nox.session
 def black(session: nox.Session):
-    "Nox `black` command. Calls `black` command."
-    commands(session).black()
+    _cmd(session, "black", False)
+
+
+@nox.session
+def black_check(session: nox.Session):
+    _cmd(session, "black", True)
+
+
+@nox.session
+def nb_clean(session: nox.Session):
+    "Call `nb-clean clean`."
+    pdm(session).run("nb-clean", "clean", "notebooks")
+
+
+@nox.session
+def nb_check(session: nox.Session):
+    "Call `nb-clean check`."
+    pdm(session).run("nb-clean", "check", "notebooks")
+
+
+def _cmd(session: nox.Session, command: str, check: bool):
+    check_flag = ["--check"] if check else []
+    _ = pdm(session).run(command, *check_flag, ".")
 
 
 @nox.session
 def mypy(session: nox.Session):
-    "Nox `mypy` command. Calls `mypy` command."
-    commands(session).mypy()
+    _ = pdm(session).run("mypy", "--install-types", "--non-interactive", "src")
 
 
 @nox.session
 def typing(session: nox.Session):
-    "Nox `typing` command. Calls `mypy` command."
     mypy(session)
 
 
 @functools.cache
 def github(session: nox.Session):
-    "Global singleton of `github`."
     return _Github(session)
 
 
@@ -81,12 +110,6 @@ def github(session: nox.Session):
 def pdm(session: nox.Session):
     "Global singleton of `pdm`."
     return _Pdm(session)
-
-
-@functools.cache
-def commands(session: nox.Session):
-    "Global singleton of `commands`."
-    return _Commands(session)
 
 
 @dcls.dataclass(frozen=True)
@@ -142,6 +165,8 @@ class _Github:
 
 @dcls.dataclass(frozen=True)
 class _Pdm:
+    "The manager for running `pdm` commands."
+
     session: nox.Session
 
     def __post_init__(self):
@@ -177,46 +202,6 @@ class _Pdm:
 
     def _run(self, *args: str):
         self.session.run(*args, external=True)
-
-
-@dcls.dataclass(frozen=True)
-class _Commands:
-    session: nox.Session
-
-    def __post_init__(self):
-        github(self.session).setup()
-
-    def build(self):
-        "`pdm build` command."
-        self.pdm.build()
-
-    def publish(self):
-        "`pdm publish` command."
-        self.pdm.publish()
-
-    def test(self):
-        "`pytest` command."
-        self.pdm.run("pytest")
-
-    def autoflake(self):
-        "`autoflake` command."
-        self.pdm.run("autoflake", ".")
-
-    def isort(self):
-        "`isort` command."
-        self.pdm.run("isort", ".")
-
-    def black(self):
-        "`black` command."
-        self.pdm.run("black", ".")
-
-    def mypy(self):
-        "`mypy` command."
-        self.pdm.run("mypy", "src")
-
-    @property
-    def pdm(self):
-        return pdm(self.session)
 
 
 def _is_remote(session: nox.Session):

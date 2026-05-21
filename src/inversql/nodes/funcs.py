@@ -1,11 +1,11 @@
 # Copyright (c) The InverSQL Authors - All Rights Reserved
 
 import dataclasses as dcls
+import enum
 import typing
 from collections import abc as cabc
 
 from .nodes import QueryNode
-import enum
 
 __all__ = ["FilterNode", "SelectNode"]
 
