@@ -25,7 +25,7 @@ def pre_commit(session: nox.Session):
 
 @nox.session
 def testing(session: nox.Session):
-    _ = session.run("pytest", *session.posargs)
+    _ = pdm(session).run("pytest", *session.posargs)
 
 
 @nox.session
@@ -93,7 +93,7 @@ def _cmd(session: nox.Session, command: str, check: bool):
 
 @nox.session
 def mypy(session: nox.Session):
-    _ = session.run_always("mypy", "--install-types", "--non-interactive", "src")
+    _ = pdm(session).run("mypy", "--install-types", "--non-interactive", "src")
 
 
 @nox.session
