@@ -1,9 +1,10 @@
 # Copyright (c) The InverSQL Authors - All Rights Reserved
 
-import abc
 import typing
+
 import pandas as pd
-from collections import abc as cabc
+
+__all__ = ["Joiner", "cross_join"]
 
 
 @typing.runtime_checkable
@@ -13,4 +14,9 @@ class Joiner(typing.Protocol):
     def join(self, left: pd.DataFrame, right: pd.DataFrame, /) -> pd.DataFrame: ...
 
 
-def explode_join(left: pd.DataFrame, right: pd.DataFrame) -> pd.DataFrame: ...
+def cross_join(left: pd.DataFrame, right: pd.DataFrame) -> pd.DataFrame:
+    """
+    Cross join gives the cartesian product.
+    """
+
+    return left.merge(right, how="cross")
