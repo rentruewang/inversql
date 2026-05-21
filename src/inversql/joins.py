@@ -11,7 +11,7 @@ __all__ = ["Joiner", "cross_join"]
 class Joiner(typing.Protocol):
     "The interface for joining 2 dataframes, in every ways you can imagine."
 
-    def join(self, left: pd.DataFrame, right: pd.DataFrame, /) -> pd.DataFrame: ...
+    def __call__(self, left: pd.DataFrame, right: pd.DataFrame, /) -> pd.DataFrame: ...
 
 
 def cross_join(left: pd.DataFrame, right: pd.DataFrame) -> pd.DataFrame:
