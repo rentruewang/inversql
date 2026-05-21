@@ -94,6 +94,10 @@ class SharedColNameJoiner(Joiner):
 
 
 def all_subsets(sequence: cabc.Sequence[str]) -> cabc.Generator[cabc.Sequence[str]]:
+    """
+    Yields all possible subsets recursively.
+    """
+
     if not sequence:
         yield []
         return
