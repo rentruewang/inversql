@@ -57,6 +57,7 @@ check_untyped_defs = true
 [[tool.mypy.overrides]]
 module = [
     "pypika.*",
+    "sklearn.*",
 ]
 ignore_missing_imports = true
 

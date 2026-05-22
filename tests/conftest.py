@@ -6,6 +6,12 @@ import pandas as pd
 import pytest
 
 
+@pytest.fixture(params=range(42))
+def seed(request):
+    "Used for testing operations that are fast, but may need many seeds."
+    return request.param
+
+
 @pytest.fixture(scope="module")
 def data() -> pathlib.Path:
     folder = pathlib.Path(__file__).parent / "data"
