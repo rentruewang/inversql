@@ -24,6 +24,19 @@ class JoinResult:
     on: cabc.Sequence[str]
     "The columns that act as key during the join."
 
+    left_on: cabc.Sequence[str] | None = None
+    "The columns from the left dataframe that act as key during the join."
+
+    right_on: cabc.Sequence[str] | None = None
+    "The columns from the right dataframe that act as key during the join."
+
+    def __post_init__(self):
+        if self.left_on is None:
+            object.__setattr__(self, "left_on", self.on)
+
+        if self.right_on is None:
+            object.__setattr__(self, "right_on", self.on)
+
     def __bool__(self):
         return self.valid()
 
@@ -60,6 +73,38 @@ def cross_join(left: pd.DataFrame, right: pd.DataFrame):
     """
 
     yield JoinResult(df=left.merge(right, how="cross"), how="cross", on=[])
+
+
+@dcls.dataclass(frozen=True)
+class HintJoiner(Joiner):
+    """
+    Join 2 dataframes with given hints.
+
+    Each hint is a pair of columns, where the first column is from the left
+    dataframe, and the second column is from the right dataframe.
+
+    A `HintJoiner` yields 1 join result for each hint.
+    """
+
+    hints: cabc.Sequence[tuple[str, str]]
+    "The column pairs used to join the dataframes."
+
+    how: str = "inner"
+    "How the tables are joined."
+
+    @typing.override
+    def __call__(self, left: pd.DataFrame, right: pd.DataFrame, /):
+        for left_on, right_on in self.hints:
+            joined = left.merge(
+                right, how=self.how, left_on=left_on, right_on=right_on
+            )
+            yield JoinResult(
+                df=joined,
+                how=self.how,
+                on=[left_on] if left_on == right_on else [],
+                left_on=[left_on],
+                right_on=[right_on],
+            )
 
 
 class SharedColNameJoiner(Joiner):
