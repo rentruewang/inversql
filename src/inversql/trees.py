@@ -34,6 +34,21 @@ class CmpOp(enum.StrEnum):
     LE = "<="
     LT = "<"
 
+    def __call__(self, left: float, right: float) -> bool:
+        match self:
+            case CmpOp.EQ:
+                return left == right
+            case CmpOp.NE:
+                return left != right
+            case CmpOp.GE:
+                return left >= right
+            case CmpOp.GT:
+                return left > right
+            case CmpOp.LE:
+                return left <= right
+            case CmpOp.LT:
+                return left < right
+
 
 @typing.final
 @dcls.dataclass(frozen=True)
@@ -52,6 +67,9 @@ class BranchNode(TreeNode):
 
     feat_idx: int
     "The feature index of the column in the `pd.DataFrame` (must be in `.columns`)."
+
+    cmp: CmpOp
+    "The comparison operator. Sklearn uses <= by default."
 
     threshold: float
     "The value that the decision tree compares against."
@@ -137,6 +155,7 @@ def sklearn_binary_tree_to_nodes(clf: tree.DecisionTreeClassifier) -> TreeNode:
 
         return BranchNode(
             feat_idx=int(feat_idx[idx]),
+            cmp=CmpOp("<="),
             threshold=float(threshold[idx]),
             yes=yes_sub_node,
             no=no_sub_node,
