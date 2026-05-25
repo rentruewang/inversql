@@ -66,19 +66,19 @@ class BranchNode(TreeNode):
     """
 
     feat_idx: int
-    "The feature index of the column in the `pd.DataFrame` (must be in `.columns`)."
+    "The node predicts the branch based on the feature at `feat_idx`."
 
     cmp: CmpOp
     "The comparison operator. Sklearn uses <= by default."
 
     threshold: float
-    "The value that the decision tree compares against."
+    "The value that the feature at `feat_idx` compares against."
 
     yes: TreeNode
-    "The branch where condition is `True`."
+    "The branch where `feat cmp threashold` is `True`."
 
     no: TreeNode
-    "The branch where condition is `False`."
+    "The branch where `feat cmp threashold` is `False`."
 
     def __post_init__(self):
         if not isinstance(self.feat_idx, int) or self.feat_idx < 0:
@@ -106,6 +106,9 @@ class LeafNode(TreeNode):
     The leaf node in a decision tree, corresponding to a category prediction.
     In this case, it corresponds to a binary condition, reflected in `.prediction`.
     """
+
+    # pred_idx: int
+    # "The feature that this leaf node predicts."
 
     @typing.override
     def children(self) -> cabc.Iterator[TreeNode]:
