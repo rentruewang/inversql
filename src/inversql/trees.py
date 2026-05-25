@@ -14,10 +14,16 @@ from sklearn.utils import validation
 __all__ = ["TreeNode", "BranchNode", "LeafNode", "sklearn_binary_tree_to_nodes"]
 
 type IntArray = npt.NDArray[np.int_]
+type FloatArray = npt.NDArray[np.floating]
+type BoolArray = npt.NDArray[np.bool_]
 
 
 class TreeNode(abc.ABC):
     __match_args__: typing.ClassVar[tuple[str, ...]]
+
+    @abc.abstractmethod
+    def predict(self, sample: FloatArray, /) -> int:
+        raise NotImplementedError
 
     @abc.abstractmethod
     def children(self) -> cabc.Iterator[TreeNode]:
@@ -94,6 +100,16 @@ class BranchNode(TreeNode):
             raise TypeError(f"{self.no=} should be a tree node.")
 
     @typing.override
+    def predict(self, sample: FloatArray) -> int:
+        # If `feat cmp threshold`, delegate to `self.yes`
+        if self.cmp(sample[self.feat_idx], self.threshold):
+            return self.yes.predict(sample)
+
+        # else delegate to `self.no`.
+        else:
+            return self.no.predict(sample)
+
+    @typing.override
     def children(self) -> cabc.Iterator[TreeNode]:
         yield self.yes
         yield self.no
@@ -107,8 +123,13 @@ class LeafNode(TreeNode):
     In this case, it corresponds to a binary condition, reflected in `.prediction`.
     """
 
-    # pred_idx: int
-    # "The feature that this leaf node predicts."
+    pred_idx: int
+    "The feature that this leaf node predicts."
+
+    @typing.override
+    def predict(self, sample: FloatArray) -> int:
+        # If this node is reached, already decided.
+        return self.pred_idx
 
     @typing.override
     def children(self) -> cabc.Iterator[TreeNode]:
@@ -138,6 +159,9 @@ def sklearn_binary_tree_to_nodes(clf: tree.DecisionTreeClassifier) -> TreeNode:
     assert np.all(feat_idx < num_feats)
     assert np.all((feat_idx >= 0) | (feat_idx == -2))
 
+    # Leaf node metadata.
+    pred_idx, is_one_hot = _process_prediction(clf.tree_.value)
+
     lengths = {num_nodes, len(to_left), len(to_right), len(threshold), len(feat_idx)}
     if lengths != {num_nodes}:
         raise AssertionError("Some fields have different length. Impossible.")
@@ -149,7 +173,8 @@ def sklearn_binary_tree_to_nodes(clf: tree.DecisionTreeClassifier) -> TreeNode:
 
         if is_leaf:
             assert feat_idx[idx] < 0, feat_idx[idx]
-            return LeafNode()
+            assert is_one_hot[idx]
+            return LeafNode(pred_idx[idx])
 
         # Internal nodes, create the sub-nodes then create the immutable `BranchNode`.
 
@@ -165,3 +190,31 @@ def sklearn_binary_tree_to_nodes(clf: tree.DecisionTreeClassifier) -> TreeNode:
         )
 
     return build_tree_node_rec()
+
+
+def _process_prediction(value: FloatArray) -> tuple[IntArray, BoolArray]:
+    """
+    Return the `prediction, is_one_hot` for the given `value` array,
+    whose shape is `nodes, outputs, classes`.
+    """
+
+    if value.ndim != 3:
+        raise ValueError(
+            f"The given value array doesn't have ndim == 3, {value.shape=}."
+        )
+
+    if value.shape[1] != 1:
+        raise ValueError(
+            "The given value array has multiple outputs. Not possible in `inversql`. "
+            f"{value.shape=}."
+        )
+
+    value = value.squeeze(1)
+
+    prediction = np.argmax(value, axis=-1)
+
+    # All 0 or 1 guarantees to be one-hot, as it always sums to 1.
+    is_one_hot = np.all((value == 0) | (value == 1), axis=-1)
+
+    assert len(prediction) == len(is_one_hot), "Sanity check failed."
+    return prediction, is_one_hot
