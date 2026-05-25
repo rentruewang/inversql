@@ -33,6 +33,9 @@ dev = [
     "ipython>=9.3.0",
     "ipykernel>=7.2.0",
     "matplotlib>=3.10.9",
+    "nox[pbs]>=2026.2.9",
+    "nb-clean>=4.0.1",
+    "jupytext>=1.19.3",
 ]
 
 [tool.autoflake]
@@ -61,8 +64,17 @@ module = [
 ]
 ignore_missing_imports = true
 
-[tool.pytest.ini_options]
+[tool.pytest]
 addopts = [
     "-v",
+    "--ff",
+    "--nf",
     "--import-mode=importlib",
+    "--dist=loadgroup",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+testpaths = [
+    "tests",
 ]
