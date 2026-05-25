@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:caf6123c7409af559fccdc8c6c67ee85147e385735ca6ef9d564d5af4fd54d2e"
+content_hash = "sha256:908b636bbe6137f3c8b14cb6c534347304b88ec40460662b50a1ffc515ea9102"
 
 [[metadata.targets]]
 requires_python = ">=3.14,<3.15"
@@ -888,6 +888,25 @@ files = [
 ]
 
 [[package]]
+name = "lightgbm"
+version = "4.6.0"
+requires_python = ">=3.7"
+summary = "LightGBM Python-package"
+groups = ["default"]
+dependencies = [
+    "numpy>=1.17.0",
+    "scipy",
+]
+files = [
+    {file = "lightgbm-4.6.0-py3-none-macosx_10_15_x86_64.whl", hash = "sha256:b7a393de8a334d5c8e490df91270f0763f83f959574d504c7ccb9eee4aef70ed"},
+    {file = "lightgbm-4.6.0-py3-none-macosx_12_0_arm64.whl", hash = "sha256:2dafd98d4e02b844ceb0b61450a660681076b1ea6c7adb8c566dfd66832aafad"},
+    {file = "lightgbm-4.6.0-py3-none-manylinux2014_aarch64.whl", hash = "sha256:4d68712bbd2b57a0b14390cbf9376c1d5ed773fa2e71e099cac588703b590336"},
+    {file = "lightgbm-4.6.0-py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:cb19b5afea55b5b61cbb2131095f50538bd608a00655f23ad5d25ae3e3bf1c8d"},
+    {file = "lightgbm-4.6.0-py3-none-win_amd64.whl", hash = "sha256:37089ee95664b6550a7189d887dbf098e3eadab03537e411f52c63c121e3ba4b"},
+    {file = "lightgbm-4.6.0.tar.gz", hash = "sha256:cb1c59720eb569389c0ba74d14f52351b573af489f230032a1c9f314f8bab7fe"},
+]
+
+[[package]]
 name = "linkify-it-py"
 version = "2.1.0"
 requires_python = ">=3.10"
@@ -1051,20 +1070,6 @@ files = [
 ]
 
 [[package]]
-name = "nb-clean"
-version = "4.0.1"
-requires_python = "<4.0,>=3.9"
-summary = "Clean Jupyter notebooks for versioning"
-groups = ["dev"]
-dependencies = [
-    "nbformat>=5.9.2",
-]
-files = [
-    {file = "nb_clean-4.0.1-py3-none-any.whl", hash = "sha256:6a673775523ad5ae18566bb0880012c169944a9357760dfcf993cdb14e2e5f82"},
-    {file = "nb_clean-4.0.1.tar.gz", hash = "sha256:f4af1bec3f25e7b18eb09024947bcc809efc97fd68bec482d219c304d850809f"},
-]
-
-[[package]]
 name = "nbformat"
 version = "5.10.4"
 requires_python = ">=3.8"
@@ -1170,6 +1175,18 @@ files = [
     {file = "numpy-2.4.6-cp314-cp314t-win_amd64.whl", hash = "sha256:81a1cca95ed5bb92aa8b10dd2cdc9a0d3853a50fad926c28b5d7e8ea54389627"},
     {file = "numpy-2.4.6-cp314-cp314t-win_arm64.whl", hash = "sha256:0c9136e14ed34a9e343a31c533d78a9813a69a3148332bce5e9821cb2f996e66"},
     {file = "numpy-2.4.6.tar.gz", hash = "sha256:f3a3570c4a2a16746ac2c31a7c7c7b0c186b95ce902e33db6f28094ed7387dda"},
+]
+
+[[package]]
+name = "nvidia-nccl-cu12"
+version = "2.30.4"
+requires_python = ">=3"
+summary = "NVIDIA Collective Communication Library (NCCL) Runtime"
+groups = ["default"]
+marker = "platform_system == \"Linux\""
+files = [
+    {file = "nvidia_nccl_cu12-2.30.4-py3-none-manylinux_2_18_aarch64.whl", hash = "sha256:606fa9aa9215c00367d060188eb1a5bbd28396aff5e11b9200d99d1a6ab79a71"},
+    {file = "nvidia_nccl_cu12-2.30.4-py3-none-manylinux_2_18_x86_64.whl", hash = "sha256:040974b261edec4b8b793e59e92ab7176fe4ab4bc61b800f9f3bfaeec2d436f3"},
 ]
 
 [[package]]
@@ -1931,7 +1948,7 @@ version = "2026.2"
 requires_python = ">=2"
 summary = "Provider of IANA time zone data"
 groups = ["default"]
-marker = "sys_platform == \"win32\" or sys_platform == \"emscripten\""
+marker = "sys_platform == \"emscripten\" or sys_platform == \"win32\""
 files = [
     {file = "tzdata-2026.2-py2.py3-none-any.whl", hash = "sha256:bbe9af844f658da81a5f95019480da3a89415801f6cc966806612cc7169bffe7"},
     {file = "tzdata-2026.2.tar.gz", hash = "sha256:9173fde7d80d9018e02a662e168e5a2d04f87c41ea174b139fbef642eda62d10"},
@@ -1977,4 +1994,24 @@ groups = ["dev"]
 files = [
     {file = "wcwidth-0.7.0-py3-none-any.whl", hash = "sha256:5d69154c429a82910e241c738cd0e2976fac8a2dd47a1a805f4afed1c0f136f2"},
     {file = "wcwidth-0.7.0.tar.gz", hash = "sha256:90e3a7ea092341c44b99562e75d09e4d5160fe7a3974c6fb842a101a95e7eed0"},
+]
+
+[[package]]
+name = "xgboost"
+version = "3.2.0"
+requires_python = ">=3.10"
+summary = "XGBoost Python Package"
+groups = ["default"]
+dependencies = [
+    "numpy",
+    "nvidia-nccl-cu12; platform_system == \"Linux\"",
+    "scipy",
+]
+files = [
+    {file = "xgboost-3.2.0-py3-none-macosx_10_15_x86_64.whl", hash = "sha256:2f661966d3e322536d9c448090a870fcba1e32ee5760c10b7c46bac7a342079a"},
+    {file = "xgboost-3.2.0-py3-none-macosx_12_0_arm64.whl", hash = "sha256:eabbd40d474b8dbf6cb3536325f9150b9e6f0db32d18de9914fb3227d0bef5b7"},
+    {file = "xgboost-3.2.0-py3-none-manylinux_2_28_aarch64.whl", hash = "sha256:852eabc6d3b3702a59bf78dbfdcd1cb9c4d3a3b6e5ed1f8781d8b9512354fdd2"},
+    {file = "xgboost-3.2.0-py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:99b4a6bbcb47212fec5cf5fbe12347215f073c08967431b0122cfbd1ee70312c"},
+    {file = "xgboost-3.2.0-py3-none-win_amd64.whl", hash = "sha256:0d169736fd836fc13646c7ab787167b3a8110351c2c6bc770c755ee1618f0442"},
+    {file = "xgboost-3.2.0.tar.gz", hash = "sha256:99b0e9a2a64896cdaf509c5e46372d336c692406646d20f2af505003c0c5d70d"},
 ]
