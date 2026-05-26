@@ -4,7 +4,7 @@ description = "Default template for PDM package"
 authors = [
     {name = "RenChu Wang", email = "patrick1031wang@gmail.com"},
 ]
-dependencies = ["scikit-learn>=1.6.1", "numpy>=2.2.6", "pandas>=2.2.3", "rich>=14.0.0", "textual>=3.2.0", "pypika>=0.48.9"]
+dependencies = ["scikit-learn>=1.6.1", "numpy>=2.2.6", "pandas>=2.2.3", "rich>=14.0.0", "textual>=3.2.0", "pypika>=0.48.9", "xgboost>=3.2.0", "lightgbm>=4.6.0"]
 requires-python = ">=3.14,<3.15"
 readme = "README.md"
 license = {text = "MIT"}
@@ -26,13 +26,14 @@ dev = [
     "black[jupyter]>=25.1.0",
     "isort>=6.0.1",
     "mypy>=1.16.0",
-    "nb-clean>=4.0.1",
     "pre-commit>=4.2.0",
     "nox[pbs]>=2026.2.9",
     "pip>=25.1.1",
     "ipython>=9.3.0",
     "ipykernel>=7.2.0",
     "matplotlib>=3.10.9",
+    "nox[pbs]>=2026.2.9",
+    "jupytext>=1.19.3",
 ]
 
 [tool.autoflake]
@@ -61,8 +62,17 @@ module = [
 ]
 ignore_missing_imports = true
 
-[tool.pytest.ini_options]
+[tool.pytest]
 addopts = [
     "-v",
+    "--ff",
+    "--nf",
     "--import-mode=importlib",
+    "--dist=loadgroup",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+testpaths = [
+    "tests",
 ]
