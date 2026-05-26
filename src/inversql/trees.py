@@ -1,6 +1,7 @@
 # Copyright (c) The InverSQL Authors - All Rights Reserved
 
 import abc
+import collections
 import dataclasses as dcls
 import functools
 import typing
@@ -24,8 +25,13 @@ def tree_dcls(cls):
 
 @dcls.dataclass(frozen=True, slots=True)
 class AncestryPath:
-    branches: list[BranchNode]
-    "The reversed lineage, from closest parent to the root (for performance reason)."
+    """
+    Since paths are always [*branches, leaf], we organize both separately
+    s.t. no type erasure to `TreeNode` need to happen (like `LeafNode.lineage`).
+    """
+
+    branches: collections.deque[BranchNode]
+    "The lineage, from root to the closest parent (use `deque` for `.appendleft`)."
 
     prediction: LeafNode
     "The leaf node (signalling prediction)."
@@ -34,7 +40,7 @@ class AncestryPath:
     def nodes(self) -> cabc.Iterator[TreeNode]:
         "The nodes from root to leaf."
 
-        yield from reversed(self.branches)
+        yield from self.branches
         yield self.prediction
 
     @property
@@ -126,7 +132,7 @@ class BranchNode(TreeNode):
         # Recursively calls the children, then append `self` to path.
         child = self.yes if self.expr.eval(sample) else self.no
         child_path = child.walk(sample)
-        child_path.branches.append(self)
+        child_path.branches.appendleft(self)
         return child_path
 
     @typing.override
@@ -149,7 +155,7 @@ class LeafNode(TreeNode):
     @typing.override
     def walk(self, sample: FloatArray) -> AncestryPath:
         # If this node is reached, only need to store `self`.
-        return AncestryPath([], self)
+        return AncestryPath(collections.deque(), self)
 
     @typing.override
     def children(self) -> cabc.Iterator[TreeNode]:
