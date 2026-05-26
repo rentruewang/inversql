@@ -7,7 +7,7 @@ import typing
 
 from inversql._utils import FloatArray
 
-__all__ = ["CmpOp", "Expr", "CmpExpr", "AndExpr", "OrExpr"]
+__all__ = ["CmpOp", "Expr", "CmpExpr", "AndExpr", "OrExpr", "DontCareExpr"]
 
 
 @typing.dataclass_transform(frozen_default=True)
@@ -17,6 +17,9 @@ def expr_dcls(cls):
 
 @expr_dcls
 class Expr(abc.ABC):
+    """
+    Base class for boolean expression.
+    """
 
     @abc.abstractmethod
     def __invert__(self) -> Expr:
@@ -31,6 +34,23 @@ class Expr(abc.ABC):
     @abc.abstractmethod
     def eval(self, sample: FloatArray) -> bool:
         raise NotImplementedError
+
+
+@expr_dcls
+class DontCareExpr(Expr):
+    """
+    Singalling the don't care values.
+
+    Evals to `NotImplemented` means `True` in `AND`, and `False` in `OR` (default values).
+    """
+
+    @typing.override
+    def __invert__(self) -> Expr:
+        return self
+
+    @typing.override
+    def eval(self, sample: FloatArray) -> bool:
+        return NotImplemented
 
 
 class CmpOp(enum.StrEnum):
@@ -125,6 +145,10 @@ class AndExpr(Expr):
     def eval(self, sample: FloatArray) -> bool:
         left = self.left.eval(sample)
         right = self.right.eval(sample)
+
+        if result := _maybe_shortcut(left, right) is not NotImplemented:
+            return result
+
         return left and right
 
 
@@ -146,4 +170,27 @@ class OrExpr(Expr):
     def eval(self, sample: FloatArray) -> bool:
         left = self.left.eval(sample)
         right = self.right.eval(sample)
+
+        if result := _maybe_shortcut(left, right) is not NotImplemented:
+            return result
+
         return left or right
+
+
+def _maybe_shortcut(left: bool, right: bool) -> bool:
+    """
+    Check if one side is `NotImplemented`, then return the otherside.
+    If both sides are `NotImplemented`, raise `ValueError`.
+    `NotImplemented` values are given by `DontCareExpr.eval`.
+    """
+
+    if left is NotImplemented and right is NotImplemented:
+        raise ValueError("Both are notimplemented.")
+
+    if left is NotImplemented:
+        return right
+
+    if right is NotImplemented:
+        return left
+
+    return NotImplemented

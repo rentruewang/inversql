@@ -2,6 +2,7 @@
 
 import abc
 import dataclasses as dcls
+import functools
 import typing
 from collections import abc as cabc
 
@@ -11,7 +12,7 @@ from sklearn.utils import validation
 
 from inversql._utils import BoolArray, FloatArray, IntArray
 
-from .exprs import CmpExpr, CmpOp, Expr
+from .exprs import AndExpr, CmpExpr, CmpOp, DontCareExpr, Expr
 
 __all__ = ["TreeNode", "BranchNode", "LeafNode", "sklearn_binary_tree_to_nodes"]
 
@@ -31,8 +32,17 @@ class AncestryPath:
 
     @property
     def nodes(self) -> cabc.Iterator[TreeNode]:
-        yield from self.branches
+        "The nodes from root to leaf."
+
+        yield from reversed(self.branches)
         yield self.prediction
+
+    @property
+    def exprs(self) -> Expr:
+        "The aggregate expressions."
+
+        init: Expr = DontCareExpr()
+        return functools.reduce(AndExpr, [node.expr for node in self.branches], init)
 
 
 @tree_dcls
