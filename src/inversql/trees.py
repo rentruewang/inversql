@@ -18,16 +18,46 @@ type FloatArray = npt.NDArray[np.floating]
 type BoolArray = npt.NDArray[np.bool_]
 
 
+@dcls.dataclass(kw_only=True)
 class TreeNode(abc.ABC):
     __match_args__: typing.ClassVar[tuple[str, ...]]
 
-    @abc.abstractmethod
+    parent: BranchNode | None = None
+    """
+    The parent of the current node.
+    """
+
+    @typing.final
     def predict(self, sample: FloatArray, /) -> int:
+        node = self.walk(sample)
+        return node.pred_idx
+
+    @abc.abstractmethod
+    def walk(self, sample: FloatArray, /) -> LeafNode:
+        """
+        Walk down the tree given the sample, and return the leaf node that is predicted.
+        """
+
         raise NotImplementedError
 
     @abc.abstractmethod
     def children(self) -> cabc.Iterator[TreeNode]:
         raise NotImplementedError
+
+    def lineage(self) -> cabc.Generator[TreeNode]:
+        """
+        Get the lineage of the current node.
+        """
+
+        # Recursively calls parent's first s.t. the lineage is root first.
+        if self.parent is not None:
+            yield from self.parent.lineage()
+
+        yield self
+
+    @property
+    def is_root(self) -> bool:
+        return self.parent is None
 
 
 class CmpOp(enum.StrEnum):
@@ -57,7 +87,7 @@ class CmpOp(enum.StrEnum):
 
 
 @typing.final
-@dcls.dataclass(frozen=True)
+@dcls.dataclass(kw_only=True)
 class BranchNode(TreeNode):
     """
     Branching based on the given features.
@@ -99,15 +129,18 @@ class BranchNode(TreeNode):
         if not isinstance(self.no, TreeNode):
             raise TypeError(f"{self.no=} should be a tree node.")
 
+        # Set the sub nodes' parent.
+        self.yes.parent = self.no.parent = self
+
     @typing.override
-    def predict(self, sample: FloatArray) -> int:
+    def walk(self, sample: FloatArray) -> LeafNode:
         # If `feat cmp threshold`, delegate to `self.yes`
         if self.cmp(sample[self.feat_idx], self.threshold):
-            return self.yes.predict(sample)
+            return self.yes.walk(sample)
 
         # else delegate to `self.no`.
         else:
-            return self.no.predict(sample)
+            return self.no.walk(sample)
 
     @typing.override
     def children(self) -> cabc.Iterator[TreeNode]:
@@ -116,7 +149,7 @@ class BranchNode(TreeNode):
 
 
 @typing.final
-@dcls.dataclass(frozen=True)
+@dcls.dataclass(kw_only=True)
 class LeafNode(TreeNode):
     """
     The leaf node in a decision tree, corresponding to a category prediction.
@@ -127,9 +160,9 @@ class LeafNode(TreeNode):
     "The feature that this leaf node predicts."
 
     @typing.override
-    def predict(self, sample: FloatArray) -> int:
+    def walk(self, sample: FloatArray) -> LeafNode:
         # If this node is reached, already decided.
-        return self.pred_idx
+        return self
 
     @typing.override
     def children(self) -> cabc.Iterator[TreeNode]:
@@ -174,13 +207,12 @@ def sklearn_binary_tree_to_nodes(clf: tree.DecisionTreeClassifier) -> TreeNode:
         if is_leaf:
             assert feat_idx[idx] < 0, feat_idx[idx]
             assert is_one_hot[idx]
-            return LeafNode(pred_idx[idx])
+            return LeafNode(pred_idx=pred_idx[idx])
 
         # Internal nodes, create the sub-nodes then create the immutable `BranchNode`.
 
         yes_sub_node = build_tree_node_rec(idx=to_left[idx])
         no_sub_node = build_tree_node_rec(idx=to_right[idx])
-
         return BranchNode(
             feat_idx=int(feat_idx[idx]),
             cmp=CmpOp("<="),
