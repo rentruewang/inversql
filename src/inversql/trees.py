@@ -2,23 +2,24 @@
 
 import abc
 import dataclasses as dcls
-import enum
 import typing
 from collections import abc as cabc
 
 import numpy as np
-from numpy import typing as npt
 from sklearn import tree
 from sklearn.utils import validation
 
+from .exprs import BoolArray, CmpExpr, CmpOp, Expr, FloatArray, IntArray
+
 __all__ = ["TreeNode", "BranchNode", "LeafNode", "sklearn_binary_tree_to_nodes"]
 
-type IntArray = npt.NDArray[np.int_]
-type FloatArray = npt.NDArray[np.floating]
-type BoolArray = npt.NDArray[np.bool_]
+
+@typing.dataclass_transform(kw_only_default=True)
+def tree_dcls(cls):
+    return dcls.dataclass(kw_only=True)(cls)
 
 
-@dcls.dataclass(kw_only=True)
+@tree_dcls
 class TreeNode(abc.ABC):
     __match_args__: typing.ClassVar[tuple[str, ...]]
 
@@ -60,62 +61,8 @@ class TreeNode(abc.ABC):
         return self.parent is None
 
 
-class CmpOp(enum.StrEnum):
-    "The comparison operators."
-
-    EQ = "=="
-    NE = "!="
-    GE = ">="
-    GT = ">"
-    LE = "<="
-    LT = "<"
-
-    def __call__(self, left: float, right: float) -> bool:
-        match self:
-            case CmpOp.EQ:
-                return left == right
-            case CmpOp.NE:
-                return left != right
-            case CmpOp.GE:
-                return left >= right
-            case CmpOp.GT:
-                return left > right
-            case CmpOp.LE:
-                return left <= right
-            case CmpOp.LT:
-                return left < right
-
-
-@dcls.dataclass(frozen=True)
-class Expression:
-    "The boolean expression that can be true or false."
-
-    feat_idx: int
-    "The node predicts the branch based on the feature at `feat_idx`."
-
-    cmp: CmpOp
-    "The comparison operator. Sklearn uses <= by default."
-
-    threshold: float
-    "The value that the feature at `feat_idx` compares against."
-
-    def __post_init__(self):
-        if not isinstance(self.feat_idx, int) or self.feat_idx < 0:
-            raise ValueError(f"{self.feat_idx=} not an integer >= 0.")
-
-        if not isinstance(self.cmp, CmpOp):
-            raise TypeError(f"{self.cmp=} should be `CmpOp`, got {type(self.cmp)=}.")
-
-        if not isinstance(self.threshold, float):
-            raise TypeError(f"{self.threshold=} should be float.")
-
-    def eval(self, sample: FloatArray) -> bool:
-        "Evaluate the current expression to true or false."
-        return self.cmp(sample[self.feat_idx], self.threshold)
-
-
 @typing.final
-@dcls.dataclass(kw_only=True)
+@tree_dcls
 class BranchNode(TreeNode):
     """
     Branching based on the given features.
@@ -129,7 +76,7 @@ class BranchNode(TreeNode):
     Both of these may change in the future (or new node may be added).
     """
 
-    expr: Expression
+    expr: Expr
     "The expression to compare against."
 
     yes: TreeNode
@@ -165,7 +112,7 @@ class BranchNode(TreeNode):
 
 
 @typing.final
-@dcls.dataclass(kw_only=True)
+@tree_dcls
 class LeafNode(TreeNode):
     """
     The leaf node in a decision tree, corresponding to a category prediction.
@@ -229,7 +176,7 @@ def sklearn_binary_tree_to_nodes(clf: tree.DecisionTreeClassifier) -> TreeNode:
 
         yes_sub_node = build_tree_node_rec(idx=to_left[idx])
         no_sub_node = build_tree_node_rec(idx=to_right[idx])
-        branch_expr = Expression(
+        branch_expr = CmpExpr(
             feat_idx=int(feat_idx[idx]),
             cmp=CmpOp("<="),
             threshold=float(threshold[idx]),
