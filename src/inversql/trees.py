@@ -9,7 +9,9 @@ import numpy as np
 from sklearn import tree
 from sklearn.utils import validation
 
-from .exprs import BoolArray, CmpExpr, CmpOp, Expr, FloatArray, IntArray
+from inversql._utils import BoolArray, FloatArray, IntArray
+
+from .exprs import CmpExpr, CmpOp, Expr
 
 __all__ = ["TreeNode", "BranchNode", "LeafNode", "sklearn_binary_tree_to_nodes"]
 

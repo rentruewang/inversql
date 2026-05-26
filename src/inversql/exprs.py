@@ -5,14 +5,9 @@ import dataclasses as dcls
 import enum
 import typing
 
-import numpy as np
-from numpy import typing as npt
+from inversql._utils import FloatArray
 
 __all__ = ["CmpOp", "Expr", "CmpExpr", "AndExpr", "OrExpr"]
-
-type IntArray = npt.NDArray[np.int_]
-type FloatArray = npt.NDArray[np.floating]
-type BoolArray = npt.NDArray[np.bool_]
 
 
 @typing.dataclass_transform(frozen_default=True)
