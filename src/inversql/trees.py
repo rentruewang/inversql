@@ -21,6 +21,20 @@ def tree_dcls(cls):
     return dcls.dataclass(kw_only=True)(cls)
 
 
+@dcls.dataclass(frozen=True, slots=True)
+class AncestryPath:
+    branches: list[BranchNode]
+    "The reversed lineage, from closest parent to the root (for performance reason)."
+
+    prediction: LeafNode
+    "The leaf node (signalling prediction)."
+
+    @property
+    def nodes(self) -> cabc.Iterator[TreeNode]:
+        yield from self.branches
+        yield self.prediction
+
+
 @tree_dcls
 class TreeNode(abc.ABC):
     __match_args__: typing.ClassVar[tuple[str, ...]]
@@ -33,10 +47,10 @@ class TreeNode(abc.ABC):
     @typing.final
     def predict(self, sample: FloatArray, /) -> int:
         node = self.walk(sample)
-        return node.pred_idx
+        return node.prediction.pred_idx
 
     @abc.abstractmethod
-    def walk(self, sample: FloatArray, /) -> LeafNode:
+    def walk(self, sample: FloatArray, /) -> AncestryPath:
         """
         Walk down the tree given the sample, and return the leaf node that is predicted.
         """
@@ -98,14 +112,12 @@ class BranchNode(TreeNode):
         self.yes.parent = self.no.parent = self
 
     @typing.override
-    def walk(self, sample: FloatArray) -> LeafNode:
-        # If `feat cmp threshold`, delegate to `self.yes`
-        if self.expr.eval(sample):
-            return self.yes.walk(sample)
-
-        # else delegate to `self.no`.
-        else:
-            return self.no.walk(sample)
+    def walk(self, sample: FloatArray) -> AncestryPath:
+        # Recursively calls the children, then append `self` to path.
+        child = self.yes if self.expr.eval(sample) else self.no
+        child_path = child.walk(sample)
+        child_path.branches.append(self)
+        return child_path
 
     @typing.override
     def children(self) -> cabc.Iterator[TreeNode]:
@@ -125,9 +137,9 @@ class LeafNode(TreeNode):
     "The feature that this leaf node predicts."
 
     @typing.override
-    def walk(self, sample: FloatArray) -> LeafNode:
-        # If this node is reached, already decided.
-        return self
+    def walk(self, sample: FloatArray) -> AncestryPath:
+        # If this node is reached, only need to store `self`.
+        return AncestryPath([], self)
 
     @typing.override
     def children(self) -> cabc.Iterator[TreeNode]:

@@ -5,7 +5,7 @@ import pytest
 from numpy import random
 from sklearn import tree
 
-from inversql.trees import BranchNode, TreeNode, sklearn_binary_tree_to_nodes
+from inversql.trees import TreeNode, sklearn_binary_tree_to_nodes
 
 
 @pytest.fixture
@@ -67,11 +67,8 @@ def test_lineage(train_data: tuple[np.ndarray, np.ndarray]):
     assert isinstance(node, TreeNode)
 
     for sample, _ in zip(*train_data):
-        leaf = node.walk(sample)
-        lineage = list(leaf.lineage())
-        assert lineage[-1] is leaf
+        path = node.walk(sample)
 
-        for branch_node in lineage[:-1]:
-            assert isinstance(branch_node, BranchNode)
+        for branch_node in path.branches:
             assert branch_node.yes.parent is branch_node
             assert branch_node.no.parent is branch_node
