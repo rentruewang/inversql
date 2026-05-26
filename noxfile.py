@@ -33,7 +33,6 @@ def formatting(session: nox.Session):
     autoflake(session)
     isort(session)
     black(session)
-    nb_clean(session)
 
 
 @nox.session
@@ -41,7 +40,6 @@ def formatting_check(session: nox.Session):
     autoflake_check(session)
     isort_check(session)
     black_check(session)
-    nb_check(session)
 
 
 @nox.session
@@ -72,18 +70,6 @@ def black(session: nox.Session):
 @nox.session
 def black_check(session: nox.Session):
     _cmd(session, "black", True)
-
-
-@nox.session
-def nb_clean(session: nox.Session):
-    "Call `nb-clean clean`."
-    pdm(session).run("nb-clean", "clean", "notebooks")
-
-
-@nox.session
-def nb_check(session: nox.Session):
-    "Call `nb-clean check`."
-    pdm(session).run("nb-clean", "check", "notebooks")
 
 
 def _cmd(session: nox.Session, command: str, check: bool):
