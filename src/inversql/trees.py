@@ -86,6 +86,34 @@ class CmpOp(enum.StrEnum):
                 return left < right
 
 
+@dcls.dataclass(frozen=True)
+class Expression:
+    "The boolean expression that can be true or false."
+
+    feat_idx: int
+    "The node predicts the branch based on the feature at `feat_idx`."
+
+    cmp: CmpOp
+    "The comparison operator. Sklearn uses <= by default."
+
+    threshold: float
+    "The value that the feature at `feat_idx` compares against."
+
+    def __post_init__(self):
+        if not isinstance(self.feat_idx, int) or self.feat_idx < 0:
+            raise ValueError(f"{self.feat_idx=} not an integer >= 0.")
+
+        if not isinstance(self.cmp, CmpOp):
+            raise TypeError(f"{self.cmp=} should be `CmpOp`, got {type(self.cmp)=}.")
+
+        if not isinstance(self.threshold, float):
+            raise TypeError(f"{self.threshold=} should be float.")
+
+    def eval(self, sample: FloatArray) -> bool:
+        "Evaluate the current expression to true or false."
+        return self.cmp(sample[self.feat_idx], self.threshold)
+
+
 @typing.final
 @dcls.dataclass(kw_only=True)
 class BranchNode(TreeNode):
@@ -101,14 +129,8 @@ class BranchNode(TreeNode):
     Both of these may change in the future (or new node may be added).
     """
 
-    feat_idx: int
-    "The node predicts the branch based on the feature at `feat_idx`."
-
-    cmp: CmpOp
-    "The comparison operator. Sklearn uses <= by default."
-
-    threshold: float
-    "The value that the feature at `feat_idx` compares against."
+    expr: Expression
+    "The expression to compare against."
 
     yes: TreeNode
     "The branch where `feat cmp threashold` is `True`."
@@ -116,13 +138,7 @@ class BranchNode(TreeNode):
     no: TreeNode
     "The branch where `feat cmp threashold` is `False`."
 
-    def __post_init__(self):
-        if not isinstance(self.feat_idx, int) or self.feat_idx < 0:
-            raise ValueError(f"{self.feat_idx=} not an integer >= 0.")
-
-        if not isinstance(self.threshold, float):
-            raise TypeError(f"{self.threshold=} should be float.")
-
+    def __post_init__(self) -> None:
         if not isinstance(self.yes, TreeNode):
             raise TypeError(f"{self.yes=} should be a tree node.")
 
@@ -135,7 +151,7 @@ class BranchNode(TreeNode):
     @typing.override
     def walk(self, sample: FloatArray) -> LeafNode:
         # If `feat cmp threshold`, delegate to `self.yes`
-        if self.cmp(sample[self.feat_idx], self.threshold):
+        if self.expr.eval(sample):
             return self.yes.walk(sample)
 
         # else delegate to `self.no`.
@@ -213,10 +229,14 @@ def sklearn_binary_tree_to_nodes(clf: tree.DecisionTreeClassifier) -> TreeNode:
 
         yes_sub_node = build_tree_node_rec(idx=to_left[idx])
         no_sub_node = build_tree_node_rec(idx=to_right[idx])
-        return BranchNode(
+        branch_expr = Expression(
             feat_idx=int(feat_idx[idx]),
             cmp=CmpOp("<="),
             threshold=float(threshold[idx]),
+        )
+
+        return BranchNode(
+            expr=branch_expr,
             yes=yes_sub_node,
             no=no_sub_node,
         )
