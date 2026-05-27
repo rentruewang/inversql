@@ -59,6 +59,7 @@ check_untyped_defs = true
 module = [
     "pypika.*",
     "sklearn.*",
+    "sympy.*",
 ]
 ignore_missing_imports = true
 

@@ -3,11 +3,12 @@
 import abc
 import dataclasses as dcls
 import enum
-from mailbox import NotEmptyError
 import operator
 import typing
 from collections import abc as cabc
+
 import sympy
+
 from inversql._utils import FloatArray
 
 __all__ = ["CmpOp", "Expr", "CmpExpr", "AndExpr", "OrExpr", "DontCareExpr"]
