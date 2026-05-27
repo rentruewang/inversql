@@ -106,11 +106,11 @@ def test_sympy_expr(train_data: tuple[np.ndarray, np.ndarray], simplify: bool):
 
     sympy_expr = node.truth_exprs_sympy(simplify=simplify)
 
+    # Here we test the substitution == our prediction.
     for sample, answer in zip(*train_data):
         sample_dict = {
             sympy.Symbol(feature_name(idx)): val for idx, val in enumerate(sample)
         }
         result = sympy_expr.subs(list(sample_dict.items()))
 
-        if result:
-            assert bool(answer)
+        assert bool(answer) == bool(result) == node.predict(sample)
