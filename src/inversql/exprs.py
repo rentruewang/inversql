@@ -4,6 +4,7 @@ import abc
 import dataclasses as dcls
 import enum
 import typing
+from collections import abc as cabc
 
 from inversql._utils import FloatArray
 
@@ -146,10 +147,7 @@ class AndExpr(Expr):
         left = self.left.eval(sample)
         right = self.right.eval(sample)
 
-        if result := _maybe_shortcut(left, right) is not NotImplemented:
-            return result
-
-        return left and right
+        return _maybe_shortcut(left, right, lambda l, r: l and r)
 
 
 @expr_dcls
@@ -171,13 +169,12 @@ class OrExpr(Expr):
         left = self.left.eval(sample)
         right = self.right.eval(sample)
 
-        if result := _maybe_shortcut(left, right) is not NotImplemented:
-            return result
-
-        return left or right
+        return _maybe_shortcut(left, right, lambda l, r: l or r)
 
 
-def _maybe_shortcut(left: bool, right: bool) -> bool:
+def _maybe_shortcut(
+    left: bool, right: bool, func: cabc.Callable[[bool, bool], bool]
+) -> bool:
     """
     Check if one side is `NotImplemented`, then return the otherside.
     If both sides are `NotImplemented`, raise `ValueError`.
@@ -185,7 +182,7 @@ def _maybe_shortcut(left: bool, right: bool) -> bool:
     """
 
     if left is NotImplemented and right is NotImplemented:
-        raise ValueError("Both are notimplemented.")
+        return NotImplemented
 
     if left is NotImplemented:
         return right
@@ -193,4 +190,4 @@ def _maybe_shortcut(left: bool, right: bool) -> bool:
     if right is NotImplemented:
         return left
 
-    return NotImplemented
+    return func(left, right)
