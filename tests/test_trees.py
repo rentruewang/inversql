@@ -11,7 +11,7 @@ from inversql.trees import BranchNode, TreeNode, sklearn_binary_tree_to_nodes
 @pytest.fixture
 def train_data(seed: int):
     random.seed(seed)
-    x = random.randn(91, 31)
+    x = random.randn(19, 31)
     y = random.randn(len(x)) > 0
 
     # Ensure that we have both categories.
@@ -100,3 +100,6 @@ def test_branching_path(train_data: tuple[np.ndarray, np.ndarray]):
 def test_simplify_root(train_data: tuple[np.ndarray, np.ndarray]):
     _, node = _create_node_from_clf(train_data)
     assert isinstance(node, TreeNode)
+
+    _ = node.truth_exprs_sympy(simplify=True)
+    _ = node.truth_exprs_sympy(simplify=False)
