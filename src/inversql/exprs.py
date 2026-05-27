@@ -42,8 +42,16 @@ class Expr(abc.ABC):
         "Evaluate with `sample` to give `True` or `False`."
         raise NotImplementedError
 
+    def to_sympy(self, simplify: bool) -> sympy.Expr:
+        expr = self._to_sympy(simplify)
+
+        if simplify:
+            expr = sympy.simplify(expr)
+
+        return expr
+
     @abc.abstractmethod
-    def to_sympy(self) -> sympy.Expr:
+    def _to_sympy(self, simplify: bool) -> sympy.Expr:
         "Convert to a `sympy.Expr`."
         raise NotImplementedError
 
@@ -65,7 +73,7 @@ class DontCareExpr(Expr):
         return NotImplemented
 
     @typing.override
-    def to_sympy(self) -> sympy.Expr:
+    def _to_sympy(self, simplify: bool) -> sympy.Expr:
         return NotImplemented
 
 
@@ -143,7 +151,7 @@ class CmpExpr(Expr):
         return self.cmp.op(sample[self.feat_idx], self.threshold)
 
     @typing.override
-    def to_sympy(self) -> sympy.Expr:
+    def _to_sympy(self, simplify: bool) -> sympy.Expr:
         symbol = sympy.symbols(f"feature_{self.feat_idx}")
         return self.cmp.op(symbol, self.threshold)
 
@@ -169,9 +177,9 @@ class AndExpr(Expr):
         return _binop_handle_notimplemented(left, right, lambda l, r: l and r)
 
     @typing.override
-    def to_sympy(self) -> sympy.Expr:
-        left = self.left.to_sympy()
-        right = self.right.to_sympy()
+    def _to_sympy(self, simplify: bool) -> sympy.Expr:
+        left = self.left.to_sympy(simplify)
+        right = self.right.to_sympy(simplify)
         return _binop_handle_notimplemented(left, right, operator.and_)
 
 
@@ -196,9 +204,9 @@ class OrExpr(Expr):
         return _binop_handle_notimplemented(left, right, lambda l, r: l or r)
 
     @typing.override
-    def to_sympy(self) -> sympy.Expr:
-        left = self.left.to_sympy()
-        right = self.right.to_sympy()
+    def _to_sympy(self, simplify: bool) -> sympy.Expr:
+        left = self.left.to_sympy(simplify)
+        right = self.right.to_sympy(simplify)
         return _binop_handle_notimplemented(left, right, operator.or_)
 
 

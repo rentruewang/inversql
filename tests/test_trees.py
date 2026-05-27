@@ -58,6 +58,7 @@ def test_our_clf(train_data: tuple[np.ndarray, np.ndarray]):
     for sample, answer in zip(*train_data):
         clf_pred = clf.predict(sample[None]).squeeze()
         our_pred = node.predict(sample)
+        assert answer in [0, 1]
         assert clf_pred == answer
         assert our_pred == answer
 
@@ -94,3 +95,8 @@ def test_branching_path(train_data: tuple[np.ndarray, np.ndarray]):
                 assert branch_node.expr.eval(sample) == True
             else:
                 assert branch_node.expr.eval(sample) == False
+
+
+def test_simplify_root(train_data: tuple[np.ndarray, np.ndarray]):
+    _, node = _create_node_from_clf(train_data)
+    assert isinstance(node, TreeNode)

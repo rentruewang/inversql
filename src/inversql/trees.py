@@ -61,7 +61,7 @@ class TreeNode(abc.ABC):
     """
 
     @typing.final
-    def predict(self, sample: FloatArray, /) -> int:
+    def predict(self, sample: FloatArray, /) -> bool:
         node = self.walk(sample)
         return node.prediction.pred_idx
 
@@ -149,8 +149,8 @@ class LeafNode(TreeNode):
     In this case, it corresponds to a binary condition, reflected in `.prediction`.
     """
 
-    pred_idx: int
-    "The feature that this leaf node predicts."
+    pred_idx: bool
+    "The value that this leaf node predicts."
 
     @typing.override
     def walk(self, sample: FloatArray) -> AncestryPath:
@@ -221,7 +221,7 @@ def sklearn_binary_tree_to_nodes(clf: tree.DecisionTreeClassifier) -> TreeNode:
     return build_tree_node_rec()
 
 
-def _process_prediction(value: FloatArray) -> tuple[IntArray, BoolArray]:
+def _process_prediction(value: FloatArray) -> tuple[BoolArray, BoolArray]:
     """
     Return the `prediction, is_one_hot` for the given `value` array,
     whose shape is `nodes, outputs, classes`.
@@ -238,9 +238,14 @@ def _process_prediction(value: FloatArray) -> tuple[IntArray, BoolArray]:
             f"{value.shape=}."
         )
 
+    if value.shape[2] != 2:
+        raise ValueError("Only binary prediction task is supported right now.")
+
     value = value.squeeze(1)
 
     prediction = np.argmax(value, axis=-1)
+    assert np.all((prediction == 0) | (prediction == 1))
+    prediction = prediction.astype(bool)
 
     # All 0 or 1 guarantees to be one-hot, as it always sums to 1.
     is_one_hot = np.all((value == 0) | (value == 1), axis=-1)
