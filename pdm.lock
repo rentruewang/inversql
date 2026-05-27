@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:908b636bbe6137f3c8b14cb6c534347304b88ec40460662b50a1ffc515ea9102"
+content_hash = "sha256:9deb993e4c8079107ce4a1a7a701992fbcaecb3f4873bdcdf434f98ef6cd2fb1"
 
 [[metadata.targets]]
 requires_python = ">=3.14,<3.15"
@@ -1025,6 +1025,16 @@ files = [
 ]
 
 [[package]]
+name = "mpmath"
+version = "1.3.0"
+summary = "Python library for arbitrary-precision floating-point arithmetic"
+groups = ["default"]
+files = [
+    {file = "mpmath-1.3.0-py3-none-any.whl", hash = "sha256:a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c"},
+    {file = "mpmath-1.3.0.tar.gz", hash = "sha256:7a28eb2a9774d00c7bc92411c19a89209d5da7c4c9a9e227be8330a23a25b91f"},
+]
+
+[[package]]
 name = "mypy"
 version = "2.1.0"
 requires_python = ">=3.10"
@@ -1567,6 +1577,21 @@ files = [
 ]
 
 [[package]]
+name = "pytest-testmon"
+version = "2.2.0"
+requires_python = ">=3.10"
+summary = "selects tests affected by changed files and methods"
+groups = ["dev"]
+dependencies = [
+    "coverage<8,>=6",
+    "pytest<10,>=5",
+]
+files = [
+    {file = "pytest_testmon-2.2.0-py3-none-any.whl", hash = "sha256:2604ca44a54d61a2e830d9ce828b41a837075e4ebc1f81b148add8e90d34815b"},
+    {file = "pytest_testmon-2.2.0.tar.gz", hash = "sha256:01f488e955ed0e0049777bee598bf1f647dd524e06f544c31a24e68f8d775a51"},
+]
+
+[[package]]
 name = "pytest-xdist"
 version = "3.8.0"
 requires_python = ">=3.9"
@@ -1847,6 +1872,20 @@ dependencies = [
 files = [
     {file = "stack_data-0.6.3-py3-none-any.whl", hash = "sha256:d5558e0c25a4cb0853cddad3d77da9891a08cb85dd9f9f91b9f8cd66e511e695"},
     {file = "stack_data-0.6.3.tar.gz", hash = "sha256:836a778de4fec4dcd1dcd89ed8abff8a221f58308462e1c4aa2a3cf30148f0b9"},
+]
+
+[[package]]
+name = "sympy"
+version = "1.14.0"
+requires_python = ">=3.9"
+summary = "Computer algebra system (CAS) in Python"
+groups = ["default"]
+dependencies = [
+    "mpmath<1.4,>=1.1.0",
+]
+files = [
+    {file = "sympy-1.14.0-py3-none-any.whl", hash = "sha256:e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5"},
+    {file = "sympy-1.14.0.tar.gz", hash = "sha256:d3d3fe8df1e5a0b42f0e7bdf50541697dbe7d23746e894990c030e2b05e72517"},
 ]
 
 [[package]]
