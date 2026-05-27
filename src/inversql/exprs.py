@@ -11,7 +11,19 @@ import sympy
 
 from inversql._utils import FloatArray
 
-__all__ = ["CmpOp", "Expr", "CmpExpr", "AndExpr", "OrExpr", "DontCareExpr"]
+__all__ = [
+    "CmpOp",
+    "Expr",
+    "CmpExpr",
+    "AndExpr",
+    "OrExpr",
+    "DontCareExpr",
+    "feature_name",
+]
+
+
+def feature_name(idx: int) -> str:
+    return f"feature_{idx}"
 
 
 @typing.dataclass_transform(frozen_default=True)
@@ -64,6 +76,10 @@ class DontCareExpr(Expr):
 
     Evals to `NotImplemented` means `True` in `AND`, and `False` in `OR` (default values).
     """
+
+    @typing.override
+    def __repr__(self) -> str:
+        return f"x"
 
     @typing.override
     def __invert__(self) -> Expr:
@@ -144,6 +160,10 @@ class CmpExpr(Expr):
             raise TypeError(f"{self.threshold=} should be float.")
 
     @typing.override
+    def __repr__(self) -> str:
+        return f"{feature_name(self.feat_idx)} {self.cmp.value} {self.threshold}"
+
+    @typing.override
     def __invert__(self) -> typing.Self:
         return dcls.replace(self, cmp=~self.cmp)
 
@@ -153,7 +173,7 @@ class CmpExpr(Expr):
 
     @typing.override
     def _to_sympy(self, simplify: bool) -> sympy.Expr:
-        symbol = sympy.symbols(f"feature_{self.feat_idx}")
+        symbol = sympy.Symbol(feature_name(self.feat_idx))
         return self.cmp.op(symbol, self.threshold)
 
 
@@ -166,6 +186,10 @@ class AndExpr(Expr):
 
     right: Expr
     "The RHS expression."
+
+    @typing.override
+    def __repr__(self) -> str:
+        return f"({self.left}) & ({self.right})"
 
     @typing.override
     def __invert__(self) -> Expr:
@@ -193,6 +217,10 @@ class OrExpr(Expr):
 
     right: Expr
     "The RHS expression."
+
+    @typing.override
+    def __repr__(self) -> str:
+        return f"({self.left}) | ({self.right})"
 
     @typing.override
     def __invert__(self) -> Expr:

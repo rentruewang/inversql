@@ -13,6 +13,7 @@ from sklearn import tree
 from sklearn.utils import validation
 
 from inversql._utils import BoolArray, FloatArray, IntArray
+from inversql.exprs import Expr
 
 from .exprs import AndExpr, CmpExpr, CmpOp, Expr, OrExpr
 
@@ -55,7 +56,7 @@ class AncestryPath:
 class TreeNode(abc.ABC):
     __match_args__: typing.ClassVar[tuple[str, ...]]
 
-    parent: BranchNode | None = None
+    parent: BranchNode | None = dcls.field(default=None, repr=False)
     """
     The parent of the current node.
     """
@@ -94,12 +95,8 @@ class TreeNode(abc.ABC):
         return self.parent is None
 
     def truth_exprs(self):
-        def sum_branch(nodes: cabc.Iterable[BranchNode]):
-            exprs = [node.expr for node in nodes]
-            return functools.reduce(AndExpr, exprs)
-
         # Each leaf is a product, and the truth values of entire tree is a sum of product.
-        sum_exprs = [sum_branch(leaf.lineage()) for leaf in self.truth_leaves()]
+        sum_exprs = [leaf.sum_expr() for leaf in self.truth_leaves()]
         tree_expr = functools.reduce(OrExpr, sum_exprs)
         return tree_expr
 
@@ -191,6 +188,24 @@ class LeafNode(TreeNode):
     def truth_leaves(self) -> cabc.Generator[LeafNode]:
         if self.val:
             yield self
+
+    def sum_expr(self) -> Expr:
+        "Get the sum expression of the leaf node. This will be later merged using `or`."
+
+        lineage = list(self.lineage())
+        assert lineage[0].is_root
+
+        expressions: list[Expr] = []
+        for parent, node in zip(lineage, [*lineage[1:], self]):
+
+            if node is parent.yes:
+                expressions.append(parent.expr)
+            elif node is parent.no:
+                expressions.append(~parent.expr)
+            else:
+                raise AssertionError("Impossible!")
+
+        return functools.reduce(AndExpr, expressions)
 
 
 def sklearn_binary_tree_to_nodes(clf: tree.DecisionTreeClassifier) -> TreeNode:

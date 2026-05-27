@@ -2,9 +2,11 @@
 
 import numpy as np
 import pytest
+import sympy
 from numpy import random
 from sklearn import tree
 
+from inversql.exprs import feature_name
 from inversql.trees import BranchNode, TreeNode, sklearn_binary_tree_to_nodes
 
 
@@ -97,9 +99,18 @@ def test_branching_path(train_data: tuple[np.ndarray, np.ndarray]):
                 assert branch_node.expr.eval(sample) == False
 
 
-def test_simplify_root(train_data: tuple[np.ndarray, np.ndarray]):
+@pytest.mark.parametrize("simplify", [False, True])
+def test_sympy_expr(train_data: tuple[np.ndarray, np.ndarray], simplify: bool):
     _, node = _create_node_from_clf(train_data)
     assert isinstance(node, TreeNode)
 
-    _ = node.truth_exprs_sympy(simplify=True)
-    _ = node.truth_exprs_sympy(simplify=False)
+    sympy_expr = node.truth_exprs_sympy(simplify=simplify)
+
+    for sample, answer in zip(*train_data):
+        sample_dict = {
+            sympy.Symbol(feature_name(idx)): val for idx, val in enumerate(sample)
+        }
+        result = sympy_expr.subs(list(sample_dict.items()))
+
+        if result:
+            assert bool(answer)
