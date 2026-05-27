@@ -177,7 +177,8 @@ def _maybe_shortcut(
 ) -> bool:
     """
     Check if one side is `NotImplemented`, then return the otherside.
-    If both sides are `NotImplemented`, raise `ValueError`.
+    If both sides are `NotImplemented`, return `NotImplemented`.
+    If both sides are given, ues `func` to evalute the boolean expression.
     `NotImplemented` values are given by `DontCareExpr.eval`.
     """
 
