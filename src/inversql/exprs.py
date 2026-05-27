@@ -147,7 +147,7 @@ class AndExpr(Expr):
         left = self.left.eval(sample)
         right = self.right.eval(sample)
 
-        return _maybe_shortcut(left, right, lambda l, r: l and r)
+        return _binop_handle_notimplemented(left, right, lambda l, r: l and r)
 
 
 @expr_dcls
@@ -169,10 +169,10 @@ class OrExpr(Expr):
         left = self.left.eval(sample)
         right = self.right.eval(sample)
 
-        return _maybe_shortcut(left, right, lambda l, r: l or r)
+        return _binop_handle_notimplemented(left, right, lambda l, r: l or r)
 
 
-def _maybe_shortcut(
+def _binop_handle_notimplemented(
     left: bool, right: bool, func: cabc.Callable[[bool, bool], bool]
 ) -> bool:
     """
