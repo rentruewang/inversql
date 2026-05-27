@@ -8,12 +8,13 @@ import typing
 from collections import abc as cabc
 
 import numpy as np
+import sympy
 from sklearn import tree
 from sklearn.utils import validation
 
 from inversql._utils import BoolArray, FloatArray, IntArray
 
-from .exprs import AndExpr, CmpExpr, CmpOp, DontCareExpr, Expr
+from .exprs import AndExpr, CmpExpr, CmpOp, Expr, OrExpr
 
 __all__ = ["TreeNode", "BranchNode", "LeafNode", "sklearn_binary_tree_to_nodes"]
 
@@ -47,8 +48,7 @@ class AncestryPath:
     def exprs(self) -> Expr:
         "The aggregate expressions."
 
-        init: Expr = DontCareExpr()
-        return functools.reduce(AndExpr, [node.expr for node in self.branches], init)
+        return functools.reduce(AndExpr, [node.expr for node in self.branches])
 
 
 @tree_dcls
@@ -63,7 +63,7 @@ class TreeNode(abc.ABC):
     @typing.final
     def predict(self, sample: FloatArray, /) -> bool:
         node = self.walk(sample)
-        return node.prediction.pred_idx
+        return node.prediction.val
 
     @abc.abstractmethod
     def walk(self, sample: FloatArray, /) -> AncestryPath:
@@ -77,20 +77,40 @@ class TreeNode(abc.ABC):
     def children(self) -> cabc.Iterator[TreeNode]:
         raise NotImplementedError
 
-    def lineage(self) -> cabc.Generator[TreeNode]:
+    def lineage(self) -> cabc.Generator[BranchNode]:
         """
-        Get the lineage of the current node.
+        Get the lineage of the current node (excluding self).
         """
+
+        if self.parent is None:
+            return
 
         # Recursively calls parent's first s.t. the lineage is root first.
-        if self.parent is not None:
-            yield from self.parent.lineage()
-
-        yield self
+        yield from self.parent.lineage()
+        yield self.parent
 
     @property
     def is_root(self) -> bool:
         return self.parent is None
+
+    def truth_exprs(self):
+        def sum_branch(nodes: cabc.Iterable[BranchNode]):
+            exprs = [node.expr for node in nodes]
+            return functools.reduce(AndExpr, exprs)
+
+        # Each leaf is a product, and the truth values of entire tree is a sum of product.
+        sum_exprs = [sum_branch(leaf.lineage()) for leaf in self.truth_leaves()]
+        tree_expr = functools.reduce(OrExpr, sum_exprs)
+        return tree_expr
+
+    def truth_exprs_sympy(self, simplify: bool) -> sympy.Expr:
+        return self.truth_exprs().to_sympy(simplify=simplify)
+
+    @abc.abstractmethod
+    def truth_leaves(self) -> cabc.Generator[LeafNode]:
+        "Get the leaf nodes that are `True`."
+
+        raise NotImplementedError
 
 
 @typing.final
@@ -140,6 +160,11 @@ class BranchNode(TreeNode):
         yield self.yes
         yield self.no
 
+    @typing.override
+    def truth_leaves(self) -> cabc.Generator[LeafNode]:
+        yield from self.yes.truth_leaves()
+        yield from self.no.truth_leaves()
+
 
 @typing.final
 @tree_dcls
@@ -149,7 +174,7 @@ class LeafNode(TreeNode):
     In this case, it corresponds to a binary condition, reflected in `.prediction`.
     """
 
-    pred_idx: bool
+    val: bool
     "The value that this leaf node predicts."
 
     @typing.override
@@ -161,6 +186,11 @@ class LeafNode(TreeNode):
     def children(self) -> cabc.Iterator[TreeNode]:
         return
         yield
+
+    @typing.override
+    def truth_leaves(self) -> cabc.Generator[LeafNode]:
+        if self.val:
+            yield self
 
 
 def sklearn_binary_tree_to_nodes(clf: tree.DecisionTreeClassifier) -> TreeNode:
@@ -200,7 +230,7 @@ def sklearn_binary_tree_to_nodes(clf: tree.DecisionTreeClassifier) -> TreeNode:
         if is_leaf:
             assert feat_idx[idx] < 0, feat_idx[idx]
             assert is_one_hot[idx]
-            return LeafNode(pred_idx=pred_idx[idx])
+            return LeafNode(val=pred_idx[idx])
 
         # Internal nodes, create the sub-nodes then create the immutable `BranchNode`.
 
