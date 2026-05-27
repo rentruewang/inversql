@@ -5,7 +5,7 @@ import pytest
 from numpy import random
 from sklearn import tree
 
-from inversql.trees import TreeNode, sklearn_binary_tree_to_nodes
+from inversql.trees import BranchNode, TreeNode, sklearn_binary_tree_to_nodes
 
 
 @pytest.fixture
@@ -60,3 +60,37 @@ def test_our_clf(train_data: tuple[np.ndarray, np.ndarray]):
         our_pred = node.predict(sample)
         assert clf_pred == answer
         assert our_pred == answer
+
+
+def test_lineage(train_data: tuple[np.ndarray, np.ndarray]):
+    _, node = _create_node_from_clf(train_data)
+    assert isinstance(node, TreeNode)
+
+    for sample, _ in zip(*train_data):
+        path = node.walk(sample)
+
+        for branch_node in path.branches:
+            assert branch_node.yes.parent is branch_node
+            assert branch_node.no.parent is branch_node
+
+
+def test_branching_path(train_data: tuple[np.ndarray, np.ndarray]):
+    _, node = _create_node_from_clf(train_data)
+    assert isinstance(node, TreeNode)
+
+    for sample, _ in zip(*train_data):
+        path = node.walk(sample)
+
+        # A list of treenode, the last one is `LeafNode`, others are `BranchNode`s.
+        nodes = list(path.nodes)
+
+        for branch_node, child_node in zip(nodes[:-1], nodes[1:]):
+            assert isinstance(branch_node, BranchNode)
+            assert child_node.parent is branch_node
+            assert child_node is branch_node.yes or child_node is branch_node.no
+
+            # If `True` walk to `yes`, if `False` walk to `no`.
+            if child_node is branch_node.yes:
+                assert branch_node.expr.eval(sample) == True
+            else:
+                assert branch_node.expr.eval(sample) == False

@@ -1,63 +1,100 @@
 # Copyright (c) The InverSQL Authors - All Rights Reserved
 
 import abc
+import collections
 import dataclasses as dcls
-import enum
+import functools
 import typing
 from collections import abc as cabc
 
 import numpy as np
-from numpy import typing as npt
 from sklearn import tree
 from sklearn.utils import validation
 
+from inversql._utils import BoolArray, FloatArray, IntArray
+
+from .exprs import AndExpr, CmpExpr, CmpOp, DontCareExpr, Expr
+
 __all__ = ["TreeNode", "BranchNode", "LeafNode", "sklearn_binary_tree_to_nodes"]
 
-type IntArray = npt.NDArray[np.int_]
-type FloatArray = npt.NDArray[np.floating]
-type BoolArray = npt.NDArray[np.bool_]
+
+@typing.dataclass_transform(kw_only_default=True)
+def tree_dcls(cls):
+    return dcls.dataclass(kw_only=True)(cls)
 
 
+@dcls.dataclass(frozen=True, slots=True)
+class AncestryPath:
+    """
+    Since paths are always [*branches, leaf], we organize both separately
+    s.t. no type erasure to `TreeNode` need to happen (like `LeafNode.lineage`).
+    """
+
+    branches: collections.deque[BranchNode]
+    "The lineage, from root to the closest parent (use `deque` for `.appendleft`)."
+
+    prediction: LeafNode
+    "The leaf node (signalling prediction)."
+
+    @property
+    def nodes(self) -> cabc.Iterator[TreeNode]:
+        "The nodes from root to leaf."
+
+        yield from self.branches
+        yield self.prediction
+
+    @property
+    def exprs(self) -> Expr:
+        "The aggregate expressions."
+
+        init: Expr = DontCareExpr()
+        return functools.reduce(AndExpr, [node.expr for node in self.branches], init)
+
+
+@tree_dcls
 class TreeNode(abc.ABC):
     __match_args__: typing.ClassVar[tuple[str, ...]]
 
-    @abc.abstractmethod
+    parent: BranchNode | None = None
+    """
+    The parent of the current node.
+    """
+
+    @typing.final
     def predict(self, sample: FloatArray, /) -> int:
+        node = self.walk(sample)
+        return node.prediction.pred_idx
+
+    @abc.abstractmethod
+    def walk(self, sample: FloatArray, /) -> AncestryPath:
+        """
+        Walk down the tree given the sample, and return the leaf node that is predicted.
+        """
+
         raise NotImplementedError
 
     @abc.abstractmethod
     def children(self) -> cabc.Iterator[TreeNode]:
         raise NotImplementedError
 
+    def lineage(self) -> cabc.Generator[TreeNode]:
+        """
+        Get the lineage of the current node.
+        """
 
-class CmpOp(enum.StrEnum):
-    "The comparison operators."
+        # Recursively calls parent's first s.t. the lineage is root first.
+        if self.parent is not None:
+            yield from self.parent.lineage()
 
-    EQ = "=="
-    NE = "!="
-    GE = ">="
-    GT = ">"
-    LE = "<="
-    LT = "<"
+        yield self
 
-    def __call__(self, left: float, right: float) -> bool:
-        match self:
-            case CmpOp.EQ:
-                return left == right
-            case CmpOp.NE:
-                return left != right
-            case CmpOp.GE:
-                return left >= right
-            case CmpOp.GT:
-                return left > right
-            case CmpOp.LE:
-                return left <= right
-            case CmpOp.LT:
-                return left < right
+    @property
+    def is_root(self) -> bool:
+        return self.parent is None
 
 
 @typing.final
-@dcls.dataclass(frozen=True)
+@tree_dcls
 class BranchNode(TreeNode):
     """
     Branching based on the given features.
@@ -71,14 +108,8 @@ class BranchNode(TreeNode):
     Both of these may change in the future (or new node may be added).
     """
 
-    feat_idx: int
-    "The node predicts the branch based on the feature at `feat_idx`."
-
-    cmp: CmpOp
-    "The comparison operator. Sklearn uses <= by default."
-
-    threshold: float
-    "The value that the feature at `feat_idx` compares against."
+    expr: Expr
+    "The expression to compare against."
 
     yes: TreeNode
     "The branch where `feat cmp threashold` is `True`."
@@ -86,28 +117,23 @@ class BranchNode(TreeNode):
     no: TreeNode
     "The branch where `feat cmp threashold` is `False`."
 
-    def __post_init__(self):
-        if not isinstance(self.feat_idx, int) or self.feat_idx < 0:
-            raise ValueError(f"{self.feat_idx=} not an integer >= 0.")
-
-        if not isinstance(self.threshold, float):
-            raise TypeError(f"{self.threshold=} should be float.")
-
+    def __post_init__(self) -> None:
         if not isinstance(self.yes, TreeNode):
             raise TypeError(f"{self.yes=} should be a tree node.")
 
         if not isinstance(self.no, TreeNode):
             raise TypeError(f"{self.no=} should be a tree node.")
 
-    @typing.override
-    def predict(self, sample: FloatArray) -> int:
-        # If `feat cmp threshold`, delegate to `self.yes`
-        if self.cmp(sample[self.feat_idx], self.threshold):
-            return self.yes.predict(sample)
+        # Set the sub nodes' parent.
+        self.yes.parent = self.no.parent = self
 
-        # else delegate to `self.no`.
-        else:
-            return self.no.predict(sample)
+    @typing.override
+    def walk(self, sample: FloatArray) -> AncestryPath:
+        # Recursively calls the children, then append `self` to path.
+        child = self.yes if self.expr.eval(sample) else self.no
+        child_path = child.walk(sample)
+        child_path.branches.appendleft(self)
+        return child_path
 
     @typing.override
     def children(self) -> cabc.Iterator[TreeNode]:
@@ -116,7 +142,7 @@ class BranchNode(TreeNode):
 
 
 @typing.final
-@dcls.dataclass(frozen=True)
+@tree_dcls
 class LeafNode(TreeNode):
     """
     The leaf node in a decision tree, corresponding to a category prediction.
@@ -127,9 +153,9 @@ class LeafNode(TreeNode):
     "The feature that this leaf node predicts."
 
     @typing.override
-    def predict(self, sample: FloatArray) -> int:
-        # If this node is reached, already decided.
-        return self.pred_idx
+    def walk(self, sample: FloatArray) -> AncestryPath:
+        # If this node is reached, only need to store `self`.
+        return AncestryPath(collections.deque(), self)
 
     @typing.override
     def children(self) -> cabc.Iterator[TreeNode]:
@@ -174,17 +200,20 @@ def sklearn_binary_tree_to_nodes(clf: tree.DecisionTreeClassifier) -> TreeNode:
         if is_leaf:
             assert feat_idx[idx] < 0, feat_idx[idx]
             assert is_one_hot[idx]
-            return LeafNode(pred_idx[idx])
+            return LeafNode(pred_idx=pred_idx[idx])
 
         # Internal nodes, create the sub-nodes then create the immutable `BranchNode`.
 
         yes_sub_node = build_tree_node_rec(idx=to_left[idx])
         no_sub_node = build_tree_node_rec(idx=to_right[idx])
-
-        return BranchNode(
+        branch_expr = CmpExpr(
             feat_idx=int(feat_idx[idx]),
             cmp=CmpOp("<="),
             threshold=float(threshold[idx]),
+        )
+
+        return BranchNode(
+            expr=branch_expr,
             yes=yes_sub_node,
             no=no_sub_node,
         )
