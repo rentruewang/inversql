@@ -3,12 +3,27 @@
 import abc
 import dataclasses as dcls
 import enum
+import operator
 import typing
 from collections import abc as cabc
 
+import sympy
+
 from inversql._utils import FloatArray
 
-__all__ = ["CmpOp", "Expr", "CmpExpr", "AndExpr", "OrExpr", "DontCareExpr"]
+__all__ = [
+    "CmpOp",
+    "Expr",
+    "CmpExpr",
+    "AndExpr",
+    "OrExpr",
+    "DontCareExpr",
+    "feature_name",
+]
+
+
+def feature_name(idx: int) -> str:
+    return f"feature_{idx}"
 
 
 @typing.dataclass_transform(frozen_default=True)
@@ -24,16 +39,33 @@ class Expr(abc.ABC):
 
     @abc.abstractmethod
     def __invert__(self) -> Expr:
+        "`~self`"
         raise NotImplementedError
 
     def __and__(self, other: Expr) -> Expr:
+        "`self & other`"
         return AndExpr(self, other)
 
     def __or__(self, other: Expr) -> Expr:
+        "`self | other`"
         return OrExpr(self, other)
 
     @abc.abstractmethod
     def eval(self, sample: FloatArray) -> bool:
+        "Evaluate with `sample` to give `True` or `False`."
+        raise NotImplementedError
+
+    def to_sympy(self, simplify: bool) -> sympy.Expr:
+        expr = self._to_sympy(simplify)
+
+        if simplify:
+            expr = sympy.simplify(expr)
+
+        return expr
+
+    @abc.abstractmethod
+    def _to_sympy(self, simplify: bool) -> sympy.Expr:
+        "Convert to a `sympy.Expr`."
         raise NotImplementedError
 
 
@@ -46,11 +78,19 @@ class DontCareExpr(Expr):
     """
 
     @typing.override
+    def __repr__(self) -> str:
+        return f"x"
+
+    @typing.override
     def __invert__(self) -> Expr:
         return self
 
     @typing.override
     def eval(self, sample: FloatArray) -> bool:
+        return NotImplemented
+
+    @typing.override
+    def _to_sympy(self, simplify: bool) -> sympy.Expr:
         return NotImplemented
 
 
@@ -63,21 +103,6 @@ class CmpOp(enum.StrEnum):
     GT = ">"
     LE = "<="
     LT = "<"
-
-    def __call__(self, left: float, right: float) -> bool:
-        match self:
-            case CmpOp.EQ:
-                return left == right
-            case CmpOp.NE:
-                return left != right
-            case CmpOp.GE:
-                return left >= right
-            case CmpOp.GT:
-                return left > right
-            case CmpOp.LE:
-                return left <= right
-            case CmpOp.LT:
-                return left < right
 
     def __invert__(self):
         match self:
@@ -93,6 +118,22 @@ class CmpOp(enum.StrEnum):
                 return CmpOp.GT
             case CmpOp.LT:
                 return CmpOp.GE
+
+    @property
+    def op(self):
+        match self:
+            case CmpOp.EQ:
+                return operator.eq
+            case CmpOp.NE:
+                return operator.ne
+            case CmpOp.GE:
+                return operator.ge
+            case CmpOp.GT:
+                return operator.gt
+            case CmpOp.LE:
+                return operator.le
+            case CmpOp.LT:
+                return operator.lt
 
 
 @expr_dcls
@@ -119,13 +160,21 @@ class CmpExpr(Expr):
             raise TypeError(f"{self.threshold=} should be float.")
 
     @typing.override
+    def __repr__(self) -> str:
+        return f"{feature_name(self.feat_idx)} {self.cmp.value} {self.threshold}"
+
+    @typing.override
     def __invert__(self) -> typing.Self:
         return dcls.replace(self, cmp=~self.cmp)
 
     @typing.override
     def eval(self, sample: FloatArray) -> bool:
-        "Evaluate the current expression to true or false."
-        return self.cmp(sample[self.feat_idx], self.threshold)
+        return self.cmp.op(sample[self.feat_idx], self.threshold)
+
+    @typing.override
+    def _to_sympy(self, simplify: bool) -> sympy.Expr:
+        symbol = sympy.Symbol(feature_name(self.feat_idx))
+        return self.cmp.op(symbol, self.threshold)
 
 
 @expr_dcls
@@ -139,6 +188,10 @@ class AndExpr(Expr):
     "The RHS expression."
 
     @typing.override
+    def __repr__(self) -> str:
+        return f"({self.left}) & ({self.right})"
+
+    @typing.override
     def __invert__(self) -> Expr:
         return ~self.left or ~self.right
 
@@ -146,8 +199,13 @@ class AndExpr(Expr):
     def eval(self, sample: FloatArray) -> bool:
         left = self.left.eval(sample)
         right = self.right.eval(sample)
-
         return _binop_handle_notimplemented(left, right, lambda l, r: l and r)
+
+    @typing.override
+    def _to_sympy(self, simplify: bool) -> sympy.Expr:
+        left = self.left.to_sympy(simplify)
+        right = self.right.to_sympy(simplify)
+        return _binop_handle_notimplemented(left, right, operator.and_)
 
 
 @expr_dcls
@@ -161,6 +219,10 @@ class OrExpr(Expr):
     "The RHS expression."
 
     @typing.override
+    def __repr__(self) -> str:
+        return f"({self.left}) | ({self.right})"
+
+    @typing.override
     def __invert__(self) -> Expr:
         return ~self.left and ~self.right
 
@@ -168,18 +230,26 @@ class OrExpr(Expr):
     def eval(self, sample: FloatArray) -> bool:
         left = self.left.eval(sample)
         right = self.right.eval(sample)
-
         return _binop_handle_notimplemented(left, right, lambda l, r: l or r)
+
+    @typing.override
+    def _to_sympy(self, simplify: bool) -> sympy.Expr:
+        left = self.left.to_sympy(simplify)
+        right = self.right.to_sympy(simplify)
+        return _binop_handle_notimplemented(left, right, operator.or_)
 
 
 def _binop_handle_notimplemented(
-    left: bool, right: bool, func: cabc.Callable[[bool, bool], bool]
-) -> bool:
+    left, right, func: cabc.Callable[[object, object], typing.Any]
+):
     """
     Check if one side is `NotImplemented`, then return the otherside.
     If both sides are `NotImplemented`, return `NotImplemented`.
     If both sides are given, ues `func` to evalute the boolean expression.
-    `NotImplemented` values are given by `DontCareExpr.eval`.
+
+    This handles both sympy symbols and boolean evaluation.
+
+    `NotImplemented` values are given by `DontCareExpr.*`.
     """
 
     if left is NotImplemented and right is NotImplemented:

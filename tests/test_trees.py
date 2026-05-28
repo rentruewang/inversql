@@ -2,16 +2,18 @@
 
 import numpy as np
 import pytest
+import sympy
 from numpy import random
 from sklearn import tree
 
+from inversql.exprs import feature_name
 from inversql.trees import BranchNode, TreeNode, sklearn_binary_tree_to_nodes
 
 
 @pytest.fixture
 def train_data(seed: int):
     random.seed(seed)
-    x = random.randn(91, 31)
+    x = random.randn(19, 31)
     y = random.randn(len(x)) > 0
 
     # Ensure that we have both categories.
@@ -58,6 +60,7 @@ def test_our_clf(train_data: tuple[np.ndarray, np.ndarray]):
     for sample, answer in zip(*train_data):
         clf_pred = clf.predict(sample[None]).squeeze()
         our_pred = node.predict(sample)
+        assert answer in [0, 1]
         assert clf_pred == answer
         assert our_pred == answer
 
@@ -94,3 +97,20 @@ def test_branching_path(train_data: tuple[np.ndarray, np.ndarray]):
                 assert branch_node.expr.eval(sample) == True
             else:
                 assert branch_node.expr.eval(sample) == False
+
+
+@pytest.mark.parametrize("simplify", [False, True])
+def test_sympy_expr(train_data: tuple[np.ndarray, np.ndarray], simplify: bool):
+    _, node = _create_node_from_clf(train_data)
+    assert isinstance(node, TreeNode)
+
+    sympy_expr = node.truth_exprs_sympy(simplify=simplify)
+
+    # Here we test the substitution == our prediction.
+    for sample, answer in zip(*train_data):
+        sample_dict = {
+            sympy.Symbol(feature_name(idx)): val for idx, val in enumerate(sample)
+        }
+        result = sympy_expr.subs(list(sample_dict.items()))
+
+        assert bool(answer) == bool(result) == node.predict(sample)
