@@ -4,7 +4,18 @@ description = "Default template for PDM package"
 authors = [
     {name = "RenChu Wang", email = "patrick1031wang@gmail.com"},
 ]
-dependencies = ["scikit-learn>=1.6.1", "numpy>=2.2.6", "pandas>=2.2.3", "rich>=14.0.0", "textual>=3.2.0", "pypika>=0.48.9", "xgboost>=3.2.0", "lightgbm>=4.6.0", "sympy>=1.14.0", "streamlit>=1.53.0"]
+dependencies = [
+    "scikit-learn>=1.6.1",
+    "numpy>=2.2.6",
+    "pandas>=2.2.3",
+    "rich>=14.0.0",
+    "textual>=3.2.0",
+    "pypika>=0.48.9",
+    "xgboost>=3.2.0",
+    "lightgbm>=4.6.0",
+    "sympy>=1.14.0",
+    "streamlit>=1.53.0",
+]
 requires-python = ">=3.14,<3.15"
 readme = "README.md"
 license = {text = "MIT"}
