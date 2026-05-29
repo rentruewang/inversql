@@ -1,16 +1,39 @@
 # Copyright (c) The InverSQL Authors - All Rights Reserved
 
+import dataclasses as dcls
 import pathlib
+import typing
+from collections import abc as cabc
 
 import pandas as pd
 import streamlit as st
 
-from inversql.pipeline import (
-    CellRef,
-    CellSelection,
-    TableSpec,
-    run_pipeline,
-)
+
+class TableSpec(typing.NamedTuple):
+    name: str
+    df: pd.DataFrame
+
+
+class CellRef(typing.NamedTuple):
+    row: int
+    column: str
+
+
+@dcls.dataclass(frozen=True)
+class CellSelection:
+    must_have: cabc.Sequence[CellRef] = ()
+    must_not_have: cabc.Sequence[CellRef] = ()
+
+
+@dcls.dataclass(frozen=True)
+class TrainingSelection:
+    positive_row_indices: cabc.Sequence[int] = ()
+
+
+def run_pipeline(*args, **kwargs) -> str:
+    "The dummy to output a sql query."
+
+    return "SELECT a, b FROM left"
 
 
 def main() -> None:
@@ -23,6 +46,7 @@ def main() -> None:
         accept_multiple_files=True,
     )
 
+    # Note: Drop this in the future (the 2 csv requirement).
     tables = _load_tables(uploaded_files)
     if not tables:
         st.info("Upload at least two CSV files to build a query.")
@@ -37,30 +61,11 @@ def main() -> None:
     left, right = _active_tables(tables)
     preview = run_pipeline(left, right)
 
-    if preview.join_summary is None:
-        st.subheader("Joined Preview")
-        st.dataframe(preview.joined_df, use_container_width=True, height=360)
-        _render_diagnostics(preview.diagnostics)
-        return
-
     st.subheader("Joined Preview")
-    must_have_event, must_not_have_event = _selection_events(
-        preview.joined_df, left=left, right=right
-    )
-    cell_selection = CellSelection(
-        must_have=_selected_cells(must_have_event, preview.joined_df),
-        must_not_have=_selected_cells(must_not_have_event, preview.joined_df),
-    )
 
-    result = run_pipeline(
-        left,
-        right,
-        cells=cell_selection,
-    )
+    result = run_pipeline(left, right)
 
-    _render_summary(result, cells=cell_selection)
-    _render_sql(result.sql)
-    _render_diagnostics(result.diagnostics)
+    _render_sql(result)
 
 
 def _load_tables(uploaded_files) -> list[TableSpec]:
@@ -99,6 +104,7 @@ def _render_table_previews(tables: list[TableSpec]) -> None:
 
 
 def _active_tables(tables: list[TableSpec]) -> tuple[TableSpec, TableSpec]:
+    # Display 2 active tables.
     table_names = [table.name for table in tables]
     table_by_name = {table.name: table for table in tables}
 
@@ -241,16 +247,6 @@ def _render_sql(sql: str | None) -> None:
         return
 
     st.code("-- SQL will appear after selecting at least one must-have cell.", "sql")
-
-
-def _render_diagnostics(diagnostics: tuple[str, ...]) -> None:
-    with st.expander("Diagnostics", expanded=True):
-        if not diagnostics:
-            st.write("No diagnostics.")
-            return
-
-        for diagnostic in diagnostics:
-            st.write(f"- {diagnostic}")
 
 
 def _unique_table_name(name: str, used_names: set[str]) -> str:
