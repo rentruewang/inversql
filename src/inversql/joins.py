@@ -78,14 +78,14 @@ class SharedColNameJoiner(Joiner):
 
         for subset in all_subsets(same_cols):
             # Don't yield the case where no columns are joined.
-            # Coupled with "inner" join empty columns would cause result to be empty.
+            # An empty key set does not describe a useful shared-column join.
             if not subset:
                 continue
 
             left_with_idx = left.set_index(same_cols)
             right_with_idx = right.set_index(same_cols)
             joined = left_with_idx.join(right_with_idx)
-            yield JoinResult(joined, how="inner", on=subset)
+            yield JoinResult(joined, how="left", on=subset)
 
     def same_column_names(self, left: pd.DataFrame, right: pd.DataFrame) -> set[str]:
         left_names = set(left.columns)
