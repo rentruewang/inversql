@@ -4,6 +4,7 @@ import abc
 import dataclasses as dcls
 import enum
 import operator
+import re
 import typing
 from collections import abc as cabc
 
@@ -26,9 +27,19 @@ def feature_name(idx: int) -> str:
     return f"feature_{idx}"
 
 
-@typing.dataclass_transform(frozen_default=True)
+_FEATURE_REGEX = re.compile("feature_(\d+)")
+
+
+def parse_feature_name(name: str) -> int:
+    if m := _FEATURE_REGEX.match(name):
+        return int(m.group(1))
+
+    raise ValueError("Cannot parse the feature.")
+
+
+@typing.dataclass_transform()
 def expr_dcls(cls):
-    return dcls.dataclass(frozen=True)(cls)
+    return dcls.dataclass()(cls)
 
 
 @expr_dcls
@@ -44,11 +55,11 @@ class Expr(abc.ABC):
 
     def __and__(self, other: Expr) -> Expr:
         "`self & other`"
-        return AndExpr(self, other)
+        return AndExpr(left=self, right=other)
 
     def __or__(self, other: Expr) -> Expr:
         "`self | other`"
-        return OrExpr(self, other)
+        return OrExpr(left=self, right=other)
 
     @abc.abstractmethod
     def eval(self, sample: FloatArray) -> bool:
@@ -67,6 +78,59 @@ class Expr(abc.ABC):
     def _to_sympy(self, simplify: bool) -> sympy.Expr:
         "Convert to a `sympy.Expr`."
         raise NotImplementedError
+
+
+def parse_sympy_expr(expr: sympy.Expr) -> Expr:
+    args = expr.args
+
+    if not _is_expr_list(args):
+        raise TypeError(
+            f"{expr.args} are not symbolic. Impossible for `inversql` usage."
+        )
+
+    match expr:
+        case sympy.And():
+            left, right = args
+
+            return AndExpr(
+                left=parse_sympy_expr(left),
+                right=parse_sympy_expr(right),
+            )
+        case sympy.Or():
+            left, right = args
+
+            return OrExpr(
+                left=parse_sympy_expr(left),
+                right=parse_sympy_expr(right),
+            )
+
+        # We don't have a `NotExpr`, but directly invoke the `__invert__`.
+        case sympy.Not():
+            [expr] = args
+
+            return ~parse_sympy_expr(expr)
+
+        case (
+            sympy.Eq() | sympy.Ne() | sympy.Ge() | sympy.Gt() | sympy.Le() | sympy.Lt()
+        ):
+            left, right = args
+            assert isinstance(left, sympy.Symbol)
+            assert isinstance(right, int | float | bool)
+            return CmpExpr(
+                feat_idx=parse_feature_name(str(left)),
+                cmp=CmpOp.from_sympy_type(type(expr)),
+                threshold=right,
+            )
+
+    raise ValueError(f"Unsupported expression: {expr}")
+
+
+def _is_expr_list(args, /) -> typing.TypeIs[cabc.Sequence[sympy.Expr]]:
+    if not isinstance(args, cabc.Sequence):
+        return False
+    if any(not isinstance(arg, sympy.Expr) for arg in args):
+        return False
+    return True
 
 
 @expr_dcls
@@ -104,7 +168,7 @@ class CmpOp(enum.StrEnum):
     LE = "<="
     LT = "<"
 
-    def __invert__(self):
+    def __invert__(self) -> CmpOp:
         match self:
             case CmpOp.EQ:
                 return CmpOp.NE
@@ -135,6 +199,28 @@ class CmpOp(enum.StrEnum):
             case CmpOp.LT:
                 return operator.lt
 
+    @classmethod
+    def from_sympy_type(cls, typ: type[sympy.Expr]) -> CmpOp:
+        if typ == sympy.Eq:
+            return cls.EQ
+
+        if typ == sympy.Ne:
+            return cls.NE
+
+        if typ == sympy.Ge:
+            return cls.GE
+
+        if typ == sympy.Gt:
+            return cls.GT
+
+        if typ == sympy.Le:
+            return cls.LE
+
+        if typ == sympy.Lt:
+            return cls.LT
+
+        raise ValueError(f"Operator type {typ} has no `CmpOp` correspondence.")
+
 
 @expr_dcls
 class CmpExpr(Expr):
@@ -148,6 +234,11 @@ class CmpExpr(Expr):
 
     threshold: float
     "The value that the feature at `feat_idx` compares against."
+
+    features: list[str] | None = None
+    """
+    If given, the features are named. Else use "feature_{i}".
+    """
 
     def __post_init__(self):
         if not isinstance(self.feat_idx, int) or self.feat_idx < 0:
