@@ -3,6 +3,7 @@
 import abc
 import dataclasses as dcls
 import enum
+import functools
 import operator
 import re
 import typing
@@ -20,14 +21,15 @@ __all__ = [
     "OrExpr",
     "DontCareExpr",
     "feature_name",
+    "parse_feature_name",
 ]
+
+
+_FEATURE_REGEX = re.compile(r"feature_(\d+)")
 
 
 def feature_name(idx: int) -> str:
     return f"feature_{idx}"
-
-
-_FEATURE_REGEX = re.compile("feature_(\d+)")
 
 
 def parse_feature_name(name: str) -> int:
@@ -66,7 +68,7 @@ class Expr(abc.ABC):
         "Evaluate with `sample` to give `True` or `False`."
         raise NotImplementedError
 
-    def to_sympy(self, simplify: bool) -> sympy.Expr:
+    def to_sympy(self, simplify: bool = False) -> sympy.Expr:
         expr = self._to_sympy(simplify)
 
         if simplify:
@@ -80,29 +82,25 @@ class Expr(abc.ABC):
         raise NotImplementedError
 
 
+@typing.no_type_check
 def parse_sympy_expr(expr: sympy.Expr) -> Expr:
-    args = expr.args
+    """
+    Parse the given sympy expression.
+    Convert the `sympy.Expr` into our `Expr` (only AND / OR / comparison),
+    this is fine because those are the only features we use from `sympy`.
 
-    if not _is_expr_list(args):
-        raise TypeError(
-            f"{expr.args} are not symbolic. Impossible for `inversql` usage."
-        )
+    Due to our limitation (that our expressions are binary), AND / OR are `fold`ed.
+
+    At some point we might transition to full `sympy`.
+    """
+
+    args = expr.args
 
     match expr:
         case sympy.And():
-            left, right = args
-
-            return AndExpr(
-                left=parse_sympy_expr(left),
-                right=parse_sympy_expr(right),
-            )
+            return functools.reduce(AndExpr, map(parse_sympy_expr, args))
         case sympy.Or():
-            left, right = args
-
-            return OrExpr(
-                left=parse_sympy_expr(left),
-                right=parse_sympy_expr(right),
-            )
+            return functools.reduce(OrExpr, map(parse_sympy_expr, args))
 
         # We don't have a `NotExpr`, but directly invoke the `__invert__`.
         case sympy.Not():
@@ -114,12 +112,11 @@ def parse_sympy_expr(expr: sympy.Expr) -> Expr:
             sympy.Eq() | sympy.Ne() | sympy.Ge() | sympy.Gt() | sympy.Le() | sympy.Lt()
         ):
             left, right = args
-            assert isinstance(left, sympy.Symbol)
-            assert isinstance(right, int | float | bool)
+            assert isinstance(left, sympy.Symbol), left
             return CmpExpr(
                 feat_idx=parse_feature_name(str(left)),
                 cmp=CmpOp.from_sympy_type(type(expr)),
-                threshold=right,
+                threshold=float(right),
             )
 
     raise ValueError(f"Unsupported expression: {expr}")
@@ -199,6 +196,22 @@ class CmpOp(enum.StrEnum):
             case CmpOp.LT:
                 return operator.lt
 
+    @property
+    def sympy_type(self):
+        match self:
+            case CmpOp.EQ:
+                return sympy.Eq
+            case CmpOp.NE:
+                return sympy.Ne
+            case CmpOp.GE:
+                return sympy.Ge
+            case CmpOp.GT:
+                return sympy.Gt
+            case CmpOp.LE:
+                return sympy.Le
+            case CmpOp.LT:
+                return sympy.Lt
+
     @classmethod
     def from_sympy_type(cls, typ: type[sympy.Expr]) -> CmpOp:
         if typ == sympy.Eq:
@@ -235,11 +248,6 @@ class CmpExpr(Expr):
     threshold: float
     "The value that the feature at `feat_idx` compares against."
 
-    features: list[str] | None = None
-    """
-    If given, the features are named. Else use "feature_{i}".
-    """
-
     def __post_init__(self):
         if not isinstance(self.feat_idx, int) or self.feat_idx < 0:
             raise ValueError(f"{self.feat_idx=} not an integer >= 0.")
@@ -247,7 +255,7 @@ class CmpExpr(Expr):
         if not isinstance(self.cmp, CmpOp):
             raise TypeError(f"{self.cmp=} should be `CmpOp`, got {type(self.cmp)=}.")
 
-        if not isinstance(self.threshold, float):
+        if not isinstance(self.threshold, int | float):
             raise TypeError(f"{self.threshold=} should be float.")
 
     @typing.override
@@ -265,7 +273,7 @@ class CmpExpr(Expr):
     @typing.override
     def _to_sympy(self, simplify: bool) -> sympy.Expr:
         symbol = sympy.Symbol(feature_name(self.feat_idx))
-        return self.cmp.op(symbol, self.threshold)
+        return self.cmp.sympy_type(symbol, self.threshold)
 
 
 @expr_dcls
@@ -285,6 +293,13 @@ class AndExpr(Expr):
     @typing.override
     def __invert__(self) -> Expr:
         return ~self.left or ~self.right
+
+    def __eq__(self, other: object):
+        if isinstance(other, AndExpr):
+            in_order = self.left == other.left and self.right == other.right
+            inverted = self.left == other.right and self.right == other.left
+            return in_order or inverted
+        return NotImplemented
 
     @typing.override
     def eval(self, sample: FloatArray) -> bool:
@@ -316,6 +331,13 @@ class OrExpr(Expr):
     @typing.override
     def __invert__(self) -> Expr:
         return ~self.left and ~self.right
+
+    def __eq__(self, other: object):
+        if isinstance(other, OrExpr):
+            in_order = self.left == other.left and self.right == other.right
+            inverted = self.left == other.right and self.right == other.left
+            return in_order or inverted
+        return NotImplemented
 
     @typing.override
     def eval(self, sample: FloatArray) -> bool:
