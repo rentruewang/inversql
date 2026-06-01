@@ -94,7 +94,7 @@ class TreeNode(abc.ABC):
     def is_root(self) -> bool:
         return self.parent is None
 
-    def truth_exprs(self):
+    def truth_exprs(self) -> Expr:
         # Each leaf is a product, and the truth values of entire tree is a sum of product.
         sum_exprs = [leaf.sum_expr() for leaf in self.truth_leaves()]
         tree_expr = OrExpr(*sum_exprs)

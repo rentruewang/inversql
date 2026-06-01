@@ -6,7 +6,7 @@ import sympy
 from numpy import random
 from sklearn import tree
 
-from inversql.exprs import feature_name, parse_sympy_expr
+from inversql.exprs import feature_name, parse_sympy_expr, simplify_expr
 from inversql.trees import BranchNode, TreeNode, sklearn_binary_tree_to_nodes
 
 
@@ -41,7 +41,9 @@ def test_clf(train_data: tuple[np.ndarray, np.ndarray]):
     assert clf.tree_.node_count <= len(y) - 1
 
 
-def _create_node_from_clf(train_data: tuple[np.ndarray, np.ndarray]):
+def _create_node_from_clf(
+    train_data: tuple[np.ndarray, np.ndarray],
+) -> tuple[tree.DecisionTreeClassifier, TreeNode]:
     x, y = train_data
     clf = _get_classifier(x, y)
     node = sklearn_binary_tree_to_nodes(clf)
@@ -121,9 +123,9 @@ def test_sympy_expr_recon(train_data: tuple[np.ndarray, np.ndarray], simplify: b
     _, node = _create_node_from_clf(train_data)
     assert isinstance(node, TreeNode)
 
-    sympy_expr = node.truth_exprs_sympy(simplify=simplify)
-    reconstructed = parse_sympy_expr(sympy_expr)
-    rec_sympy_expr = reconstructed.to_sympy()
+    truth_exprs = node.truth_exprs()
+    sympy_expr = truth_exprs.to_sympy(simplify=simplify)
+    rec_sympy_expr = simplify_expr(truth_exprs).to_sympy()
 
     for sample, answer in zip(*train_data):
         sample_dict = {
