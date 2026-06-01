@@ -47,11 +47,18 @@ def test_join(
 ):
     assert join_rel.columns == {*left_rel.columns, *right_rel.columns}
 
+
+def test_join_len(
+    join_rel: JoinRelation, left_rel: SourceRelation, right_rel: SourceRelation
+):
     if join_rel.how == "inner":
         assert len(join_rel.data()) <= min(len(left_rel.data()), len(right_rel.data()))
 
     elif join_rel.how == "cross":
         assert len(join_rel.data()) == len(left_rel.data()) * len(right_rel.data())
+
+    else:
+        raise NotImplementedError("Not present in test cases.")
 
 
 @pytest.fixture
