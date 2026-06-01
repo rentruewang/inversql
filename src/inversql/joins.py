@@ -7,7 +7,7 @@ from collections import abc as cabc
 
 import pandas as pd
 
-from inversql.refs import pd_merge_with_suffix
+from inversql.refs import pd_merge_with_suffix, pd_join_with_suffix
 
 __all__ = [
     "Joiner",
@@ -144,10 +144,8 @@ def cross_joiner(
     Cross join gives the cartesian product.
     """
 
-    df_id_to_name = {id(df): key for key, df in dataframes.items()}
-
     def cross_join(l: pd.DataFrame, r: pd.DataFrame) -> pd.DataFrame:
-        return pd_merge_with_suffix(l, r, how="cross", df_id_name=df_id_to_name)
+        return pd_merge_with_suffix(l, r, how="cross", dataframes=dataframes)
 
     df = functools.reduce(cross_join, dataframes.values())
     yield JoinResult(df, sources=dataframes, ops=JoinOp(how="cross"))
@@ -172,8 +170,11 @@ def shared_col_name_joiner(
             continue
 
         dfs = [df.set_index(subset) for df in dataframes.values()]
-        join: typing.Any = pd.DataFrame.join
-        joined = functools.reduce(join, dfs)
+
+        def inner_join(left, right):
+            return pd_join_with_suffix(left, right, "inner", dataframes=dataframes)
+
+        joined = functools.reduce(inner_join, dfs)
 
         yield JoinResult(
             df=joined, sources=dataframes, ops=JoinOp(how="inner", on=subset)

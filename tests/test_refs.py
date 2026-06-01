@@ -28,4 +28,4 @@ def test_numeric_df_left(request: pytest.FixtureRequest, num_df, df):
     df: pd.DataFrame = request.getfixturevalue(df)
 
     assert not len(num_df.numeric().select_dtypes(exclude=["number"]).columns)
-    assert (num_df.revert(num_df.numeric()) == df).all().all()
+    assert (num_df.original() == df).all().all()

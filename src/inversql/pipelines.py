@@ -66,7 +66,6 @@ def train_test_pair(
     for sel in selected:
         assert str(sel) in result.df.columns, result.df.columns
         marked = result.df[str(sel)].to_numpy()
-        breakpoint()
         y |= marked
 
     return x, y

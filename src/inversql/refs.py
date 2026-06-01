@@ -2,12 +2,20 @@
 
 "Merging with tracking info."
 
+from streamlit.connections import SnowflakeCallersRightsConnection
+
 import dataclasses as dcls
 import typing
 
 import pandas as pd
 
-__all__ = ["pd_merge_with_suffix", "ColRef", "NumericDF", "AnnotatedDF"]
+__all__ = [
+    "pd_merge_with_suffix",
+    "pd_join_with_suffix",
+    "ColRef",
+    "NumericDF",
+    "AnnotatedDF",
+]
 
 type _MergeHow = typing.Literal[
     "left", "right", "outer", "inner", "cross", "left_anti", "right_anti"
@@ -45,16 +53,24 @@ class NumericDF:
         "Mapping of column -> codes -> category."
 
     def numeric(self) -> pd.DataFrame:
+        "Get the numeric version of the dataframe (pre computed)."
         return self._numeric
 
     @typing.no_type_check
     def revert(self, num_df: pd.DataFrame) -> pd.DataFrame:
+        "Revert the numeric dataframe to the ones with cateogies."
+
         for column, code_category in self._mappings.items():
             if column not in num_df:
                 continue
 
             num_df[column] = num_df[column].apply(lambda x: code_category[x])
+            num_df[column] = num_df[column].astype("category")
         return num_df
+
+    def original(self) -> pd.DataFrame:
+        "Get the original dataframe that constructed this `NumericDF`."
+        return self.revert(self.numeric())
 
 
 @dcls.dataclass(frozen=True)
@@ -83,7 +99,8 @@ class AnnotatedDF:
         df.loc[sorted(self.row_idxs), _ROW_SELECTED_MARKER] = True
         assert df.notna().all().all(), "DataFrame contains NaN values!"
 
-        breakpoint()
+        # Qualify all of the dataframe's columns.
+        df.columns = [f"{self.name}.{col}" for col in df.columns]
         return df
 
 
@@ -131,11 +148,35 @@ class ColRef:
         return cls(table=table, column=_ROW_SELECTED_MARKER)
 
 
+@dcls.dataclass(frozen=True, slots=True)
+class _PdMerger:
+    how: _MergeHow
+    on: str | None = None
+    left_on: str | None = None
+    right_on: str | None = None
+
+    def __call__(
+        self,
+        left: pd.DataFrame,
+        right: pd.DataFrame,
+        left_suffix: str,
+        right_suffix: str,
+    ) -> pd.DataFrame:
+        return left.merge(
+            right,
+            how=self.how,
+            on=self.on,
+            left_on=self.left_on,
+            right_on=self.right_on,
+            suffixes=["." + left_suffix, "." + right_suffix],
+        )
+
+
 def pd_merge_with_suffix(
     left: pd.DataFrame,
     right: pd.DataFrame,
     how: _MergeHow,
-    df_id_name: dict[int, str],
+    dataframes: dict[str, pd.DataFrame],
     on: str | None = None,
     left_on: str | None = None,
     right_on: str | None = None,
@@ -144,9 +185,61 @@ def pd_merge_with_suffix(
     This handles merging in `pd`, with good suffix for parsing.
 
     Args:
-        df_id_name: The mapping from id(dataframe) to their names. Used for suffixes.
+        dataframes: The mapping from names to dataframes.
         **kwargs: Same as `pd.merge`.
     """
+
+    merger = _PdMerger(how=how, on=on, left_on=left_on, right_on=right_on)
+    return _join_or_merge(merger, left=left, right=right, dataframes=dataframes)
+
+
+@dcls.dataclass(frozen=True, slots=True)
+class _PdJoiner:
+    how: _MergeHow
+    on: str | None = None
+
+    def __call__(
+        self,
+        left: pd.DataFrame,
+        right: pd.DataFrame,
+        left_suffix: str,
+        right_suffix: str,
+    ) -> pd.DataFrame:
+        return left.join(
+            right,
+            how=self.how,
+            on=self.on,
+            lsuffix="." + left_suffix,
+            rsuffix="." + right_suffix,
+        )
+
+
+def pd_join_with_suffix(
+    left: pd.DataFrame,
+    right: pd.DataFrame,
+    how: _MergeHow,
+    dataframes: dict[str, pd.DataFrame],
+    on: str | None = None,
+):
+    """
+    This handles joining in `pd`, with good suffix for parsing.
+
+    Args:
+        dataframes: The mapping from names to dataframes.
+        **kwargs: Same as `pd.join`.
+    """
+
+    joiner = _PdJoiner(how=how, on=on)
+    return _join_or_merge(joiner, left=left, right=right, dataframes=dataframes)
+
+
+def _join_or_merge(
+    merger: _PdMerger | _PdJoiner,
+    left: pd.DataFrame,
+    right: pd.DataFrame,
+    dataframes: dict[str, pd.DataFrame],
+):
+    df_id_name = {id(df): key for key, df in dataframes.items()}
 
     assert id(left) in df_id_name
     assert id(right) in df_id_name
@@ -154,14 +247,7 @@ def pd_merge_with_suffix(
     ls, rs = (df_id_name[id(t)] for t in [left, right])
 
     # If there is a conflict, the new column would be `name.table`.
-    result = left.merge(
-        right,
-        how=how,
-        on=on,
-        left_on=left_on,
-        right_on=right_on,
-        suffixes=["." + ls, "." + rs],
-    )
+    result = merger(left=left, right=right, left_suffix=ls, right_suffix=rs)
 
     map_left = {f"{col}.{ls}": f"{ls}.{col}" for col in left.columns}
     map_right = {f"{col}.{rs}": f"{rs}.{col}" for col in right.columns}

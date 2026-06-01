@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 from inversql.pipelines import Pipeline
-from inversql.refs import AnnotatedDF
+from inversql.refs import AnnotatedDF, NumericDF
 
 
 @pytest.fixture
@@ -13,4 +13,4 @@ def pipeline():
 
 
 def annot_left(join_left_df: pd.DataFrame):
-    return AnnotatedDF("join_left_df", join_left_df)
+    return AnnotatedDF("join_left_df", NumericDF(join_left_df))
