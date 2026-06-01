@@ -13,9 +13,7 @@ from sklearn import tree
 from sklearn.utils import validation
 
 from inversql._utils import BoolArray, FloatArray, IntArray
-from inversql.exprs import Expr
-
-from .exprs import AndExpr, CmpExpr, CmpOp, Expr, OrExpr
+from inversql.exprs import AndExpr, CmpExpr, CmpOp, Expr, OrExpr
 
 __all__ = ["TreeNode", "BranchNode", "LeafNode", "sklearn_binary_tree_to_nodes"]
 

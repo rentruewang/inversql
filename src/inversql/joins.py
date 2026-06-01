@@ -2,11 +2,12 @@
 
 import dataclasses as dcls
 import functools
-import re
 import typing
 from collections import abc as cabc
 
 import pandas as pd
+
+from inversql.refs import pd_merge_with_suffix
 
 __all__ = [
     "Joiner",
@@ -15,50 +16,6 @@ __all__ = [
     "cross_joiner",
     "shared_col_name_joiner",
 ]
-
-_SUFFIX_REGEX = re.compile(r"^.+__inversql_suffix_(\d+)__$")
-
-type _MergeHow = typing.Literal[
-    "left", "right", "outer", "inner", "cross", "left_anti", "right_anti"
-]
-
-
-def parse_df_suffix(name: str) -> int | None:
-    if m := _SUFFIX_REGEX.match(name):
-        return int(m.group(1))
-    else:
-        return None
-
-
-def df_suffix(idx: int) -> str:
-    return f"__inversql_suffix_{idx}__"
-
-
-def _pd_merge_with_suffix(
-    left: pd.DataFrame,
-    right: pd.DataFrame,
-    how: _MergeHow,
-    df_id_name: dict[int, str],
-    on: str | None = None,
-    left_on: str | None = None,
-    right_on: str | None = None,
-):
-    """
-    This handles merging in `pd`, with good suffix for parsing.
-
-    Args:
-        df_id_name: The mapping from id(dataframe) to their names. Used for suffixes.
-        **kwargs: Same as `pd.merge`.
-    """
-
-    assert id(left) in df_id_name
-    assert id(right) in df_id_name
-
-    suffixes = df_id_name[id(left)], df_id_name[id(right)]
-
-    return left.merge(
-        right, how=how, on=on, left_on=left_on, right_on=right_on, suffixes=suffixes
-    )
 
 
 @dcls.dataclass(frozen=True)
@@ -190,7 +147,7 @@ def cross_joiner(
     df_id_to_name = {id(df): key for key, df in dataframes.items()}
 
     def cross_join(l: pd.DataFrame, r: pd.DataFrame) -> pd.DataFrame:
-        return _pd_merge_with_suffix(l, r, how="cross", df_id_name=df_id_to_name)
+        return pd_merge_with_suffix(l, r, how="cross", df_id_name=df_id_to_name)
 
     df = functools.reduce(cross_join, dataframes.values())
     yield JoinResult(df, sources=dataframes, ops=JoinOp(how="cross"))

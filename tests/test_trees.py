@@ -6,7 +6,7 @@ import sympy
 from numpy import random
 from sklearn import tree
 
-from inversql.exprs import feature_name, parse_sympy_expr, simplify_expr
+from inversql.exprs import feature_name, simplify_expr
 from inversql.trees import BranchNode, TreeNode, sklearn_binary_tree_to_nodes
 
 
