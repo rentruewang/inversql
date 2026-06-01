@@ -82,8 +82,12 @@ class Expr(abc.ABC):
         raise NotImplementedError
 
 
+def simplify(expr: Expr, /) -> Expr:
+    return parse_sympy_expr(expr.to_sympy(simplify=True))
+
+
 @typing.no_type_check
-def parse_sympy_expr(expr: sympy.Expr) -> Expr:
+def parse_sympy_expr(expr: sympy.Expr, /) -> Expr:
     """
     Parse the given sympy expression.
     Convert the `sympy.Expr` into our `Expr` (only AND / OR / comparison),
