@@ -7,6 +7,8 @@ from collections import abc as cabc
 
 import pandas as pd
 
+from inversql.rels import JoinRelation, Relation, SourceRelation
+
 __all__ = [
     "Joiner",
     "JoinerList",
@@ -81,9 +83,7 @@ class Joiner(typing.Protocol):
     If nothing is yielded, that means no valid table can be had from this joiner.
     """
 
-    def __call__(
-        self, dataframes: dict[str, pd.DataFrame], /
-    ) -> cabc.Iterator[JoinResult]:
+    def __call__(self, sources: dict[str, SourceRelation]) -> cabc.Iterator[Relation]:
         """
         Yields all the potential tables that this `Joiner` knows.
         """
@@ -100,10 +100,8 @@ class FilteredJoiner(Joiner):
     joiner: Joiner
     "The joiner whose output we want to filter."
 
-    def __call__(
-        self, dataframes: dict[str, pd.DataFrame]
-    ) -> cabc.Generator[JoinResult]:
-        for result in self.joiner(dataframes):
+    def __call__(self, sources: dict[str, SourceRelation]) -> cabc.Iterator[Relation]:
+        for result in self.joiner(sources):
             if result:
                 yield result
 
@@ -123,11 +121,9 @@ class JoinerList(Joiner):
     "The joiners to iterate over."
 
     @typing.override
-    def __call__(
-        self, dataframes: dict[str, pd.DataFrame]
-    ) -> cabc.Generator[JoinResult]:
+    def __call__(self, sources: dict[str, SourceRelation]) -> cabc.Iterator[Relation]:
         for joiner in self._filtered_joiners:
-            yield from joiner(dataframes)
+            yield from joiner(sources)
 
     @property
     def _filtered_joiners(self) -> cabc.Generator[Joiner]:
@@ -135,23 +131,20 @@ class JoinerList(Joiner):
             yield FilteredJoiner.wrap(joiner)
 
 
-def cross_joiner(
-    dataframes: dict[str, pd.DataFrame],
-) -> cabc.Generator[JoinResult]:
+def cross_joiner(sources: dict[str, SourceRelation]) -> cabc.Iterator[Relation]:
     """
     Cross join gives the cartesian product.
     """
 
-    def cross_join(l: pd.DataFrame, r: pd.DataFrame) -> pd.DataFrame:
-        return pd_merge_with_suffix(l, r, how="cross", dataframes=dataframes)
+    def cross_join(l, r):
+        return JoinRelation(l, r, "cross")
 
-    df = functools.reduce(cross_join, dataframes.values())
-    yield JoinResult(df, sources=dataframes, ops=JoinOp(how="cross"))
+    yield functools.reduce(cross_join, sources.values())
 
 
 def shared_col_name_joiner(
-    dataframes: dict[str, pd.DataFrame],
-) -> cabc.Generator[JoinResult]:
+    sources: dict[str, SourceRelation],
+) -> cabc.Generator[Relation]:
     """
     Join 2 dataframes with their shared columns.
 
@@ -161,27 +154,23 @@ def shared_col_name_joiner(
     So this would yield 2**n - 1 join results.
     """
 
-    same_cols = list(_same_column_names(dataframes.values()))
+    same_cols = list(_same_column_names(sources.values()))
 
     for subset in all_subsets(same_cols):
         if not subset:
             continue
 
-        dfs = [df.set_index(subset) for df in dataframes.values()]
+        def inner_join(l, r):
+            join_key = tuple(subset)
+            return JoinRelation(l, r, "inner", left_on=join_key, right_on=join_key)
 
-        def inner_join(left, right):
-            return pd_join_with_suffix(left, right, "inner", dataframes=dataframes)
-
-        joined = functools.reduce(inner_join, dfs)
-
-        yield JoinResult(
-            df=joined, sources=dataframes, ops=JoinOp(how="inner", on=subset)
-        )
+        yield functools.reduce(inner_join, sources.values())
 
 
-def _same_column_names(dataframes: cabc.Iterable[pd.DataFrame]) -> set[str]:
+def _same_column_names(sources: cabc.Iterable[Relation]) -> set[str]:
     "Get the column names that are shared."
-    names = [set(df.columns) for df in dataframes]
+
+    names = [{c.column for c in source.columns} for source in sources]
     shared: set[str] = functools.reduce(set.intersection, names)
     assert isinstance(shared, set) and all(isinstance(k, str) for k in shared)
     return shared

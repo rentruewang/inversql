@@ -27,6 +27,7 @@ __all__ = [
 ]
 
 type _SupportedJoinTypes = typing.Literal["left", "right", "outer", "inner", "cross"]
+type _JoinKey = str | tuple[str, ...] | None
 
 _ROW_MARKER = "__inversql_selected__"
 
@@ -202,8 +203,8 @@ class JoinRelation(Relation):
         left: Relation,
         right: Relation,
         how: _SupportedJoinTypes,
-        left_on: str,
-        right_on: str,
+        left_on: _JoinKey = None,
+        right_on: _JoinKey = None,
     ) -> None:
         self._left = left
         self._right = right
@@ -215,15 +216,10 @@ class JoinRelation(Relation):
         left = self._left._to_pandas()
         right = self._right._to_pandas()
 
-        def first(rel: Relation, target: str) -> ColLabel:
-            return next(col for col in rel.columns if col.column == target)
+        left_on = _join_key(self.left.columns, self.left_on)
+        right_on = _join_key(self.right.columns, self.right_on)
 
-        left_on = first(self.left, self.left_on).ref()
-        right_on = first(self.right, self.right_on).ref()
-
-        return pd.merge(
-            left, right, how=self.how, left_on=str(left_on), right_on=str(right_on)
-        )
+        return pd.merge(left, right, how=self.how, left_on=left_on, right_on=right_on)
 
     @property
     def columns(self) -> set[ColLabel]:
@@ -257,12 +253,27 @@ class JoinRelation(Relation):
         return self._right
 
     @property
-    def left_on(self) -> str:
+    def left_on(self) -> _JoinKey:
         return self._left_on
 
     @property
-    def right_on(self) -> str:
+    def right_on(self) -> _JoinKey:
         return self._right_on
+
+
+def _join_key(cols: set[ColLabel], target: _JoinKey) -> _JoinKey:
+    def first(key: str) -> str:
+        return next(str(col.ref()) for col in cols if col.column == key)
+
+    match target:
+        case None:
+            return None
+        case str():
+            return next(str(col.ref()) for col in cols if col.column == target)
+        case tuple():
+            return tuple(first(k) for k in target)
+
+    raise RuntimeError("Not reachable.")
 
 
 class NumericDF:
