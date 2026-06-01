@@ -98,9 +98,9 @@ def parse_sympy_expr(expr: sympy.Expr) -> Expr:
 
     match expr:
         case sympy.And():
-            return functools.reduce(AndExpr, map(parse_sympy_expr, args))
+            return AndExpr(*[parse_sympy_expr(a) for a in args])
         case sympy.Or():
-            return functools.reduce(OrExpr, map(parse_sympy_expr, args))
+            return OrExpr(*[parse_sympy_expr(a) for a in args])
 
         # We don't have a `NotExpr`, but directly invoke the `__invert__`.
         case sympy.Not():
@@ -286,6 +286,7 @@ class _AndOrExpr(Expr, abc.ABC):
     "The exprs that are evaluated."
 
     def __init__(self, *exprs: Expr) -> None:
+        assert all(isinstance(e, Expr) for e in exprs), exprs
         self.exprs = exprs
 
     def __contains__(self, obj: object):
