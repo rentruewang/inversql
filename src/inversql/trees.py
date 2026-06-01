@@ -13,9 +13,7 @@ from sklearn import tree
 from sklearn.utils import validation
 
 from inversql._utils import BoolArray, FloatArray, IntArray
-from inversql.exprs import Expr
-
-from .exprs import AndExpr, CmpExpr, CmpOp, Expr, OrExpr
+from inversql.exprs import AndExpr, CmpExpr, CmpOp, Expr, OrExpr
 
 __all__ = ["TreeNode", "BranchNode", "LeafNode", "sklearn_binary_tree_to_nodes"]
 
@@ -94,7 +92,7 @@ class TreeNode(abc.ABC):
     def is_root(self) -> bool:
         return self.parent is None
 
-    def truth_exprs(self):
+    def truth_exprs(self) -> Expr:
         # Each leaf is a product, and the truth values of entire tree is a sum of product.
         sum_exprs = [leaf.sum_expr() for leaf in self.truth_leaves()]
         tree_expr = OrExpr(*sum_exprs)
