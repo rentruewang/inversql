@@ -49,7 +49,7 @@ class AncestryPath:
     def exprs(self) -> Expr:
         "The aggregate expressions."
 
-        return functools.reduce(AndExpr, [node.expr for node in self.branches])
+        return AndExpr(*[node.expr for node in self.branches])
 
 
 @tree_dcls
@@ -97,7 +97,7 @@ class TreeNode(abc.ABC):
     def truth_exprs(self):
         # Each leaf is a product, and the truth values of entire tree is a sum of product.
         sum_exprs = [leaf.sum_expr() for leaf in self.truth_leaves()]
-        tree_expr = functools.reduce(OrExpr, sum_exprs)
+        tree_expr = OrExpr(*sum_exprs)
         return tree_expr
 
     def truth_exprs_sympy(self, simplify: bool) -> sympy.Expr:
