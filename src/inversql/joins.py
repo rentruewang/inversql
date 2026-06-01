@@ -7,8 +7,6 @@ from collections import abc as cabc
 
 import pandas as pd
 
-from inversql.refs import pd_merge_with_suffix, pd_join_with_suffix
-
 __all__ = [
     "Joiner",
     "JoinerList",

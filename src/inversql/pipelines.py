@@ -14,7 +14,6 @@ from inversql.joins import (
     cross_joiner,
     shared_col_name_joiner,
 )
-from inversql.refs import AnnotatedDF, ColRef
 from inversql.trees import sklearn_binary_tree_to_nodes
 
 __all__ = ["default_joiners", "Pipeline"]
