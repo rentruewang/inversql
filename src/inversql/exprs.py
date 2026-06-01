@@ -41,7 +41,7 @@ def parse_feature_name(name: str) -> int:
 
 @typing.dataclass_transform()
 def expr_dcls(cls):
-    return dcls.dataclass()(cls)
+    return dcls.dataclass(frozen=False, unsafe_hash=True)(cls)
 
 
 @expr_dcls
@@ -57,11 +57,11 @@ class Expr(abc.ABC):
 
     def __and__(self, other: Expr) -> Expr:
         "`self & other`"
-        return AndExpr(left=self, right=other)
+        return AndExpr(self, other)
 
     def __or__(self, other: Expr) -> Expr:
         "`self | other`"
-        return OrExpr(left=self, right=other)
+        return OrExpr(self, other)
 
     @abc.abstractmethod
     def eval(self, sample: FloatArray) -> bool:
@@ -276,84 +276,108 @@ class CmpExpr(Expr):
         return self.cmp.sympy_type(symbol, self.threshold)
 
 
+class _AndOrExpr(Expr, abc.ABC):
+    "Either AND / OR. They share a lot of utilities."
+
+    _OP_NAME: typing.ClassVar[str]
+    "The name of the binary operator."
+
+    exprs: cabc.Sequence[Expr]
+    "The exprs that are evaluated."
+
+    def __init__(self, *exprs: Expr) -> None:
+        self.exprs = exprs
+
+    def __contains__(self, obj: object):
+        if not isinstance(obj, Expr):
+            return False
+
+        return obj in self.exprs
+
+    def __iter__(self):
+        yield from self.exprs
+
+    def __len__(self):
+        return len(self.exprs)
+
+    @typing.override
+    def __repr__(self) -> str:
+        return f" {self._OP_NAME} ".join(f"({expr})" for expr in self.exprs)
+
+    @typing.override
+    def __invert__(self) -> Expr:
+        return _invert_and_or(type(self), *self.exprs)
+
+    def __eq__(self, other: object):
+        if type(self) != type(other):
+            return NotImplemented
+
+        assert isinstance(other, _AndOrExpr)
+        return set(self.exprs) == set(other.exprs)
+
+    @typing.override
+    def eval(self, sample: FloatArray) -> bool:
+        children = [expr.eval(sample) for expr in self.exprs]
+        return functools.reduce(self._operator, children)
+
+    @typing.override
+    def _to_sympy(self, simplify: bool) -> sympy.Expr:
+        children = [expr.to_sympy(simplify) for expr in self.exprs]
+        return functools.reduce(self._operator, children)
+
+    @property
+    def _operator(self):
+        return functools.partial(_binop_handle_notimplemented, self._cls_op())
+
+    @classmethod
+    @abc.abstractmethod
+    def _cls_op(cls) -> cabc.Callable[[typing.Any, typing.Any], typing.Any]:
+        """
+        Either `operator.and_` or `operator.or_`.
+        """
+        raise NotImplementedError
+
+
+def _invert_and_or(cls: type[_AndOrExpr], *exprs: Expr) -> Expr:
+    assert cls in [AndExpr, OrExpr]
+
+    inverted = AndExpr if cls is OrExpr else OrExpr
+
+    return functools.reduce(inverted, map(lambda e: ~e, exprs))
+
+
+@typing.final
 @expr_dcls
-class AndExpr(Expr):
+class AndExpr(_AndOrExpr):
     "`left & right` expression."
 
-    left: Expr
-    "The LHS expression."
+    _OP_NAME = "&"
 
-    right: Expr
-    "The RHS expression."
+    def __init__(self, *exprs: Expr):
+        super().__init__(*exprs)
 
-    @typing.override
-    def __repr__(self) -> str:
-        return f"({self.left}) & ({self.right})"
-
-    @typing.override
-    def __invert__(self) -> Expr:
-        return ~self.left or ~self.right
-
-    def __eq__(self, other: object):
-        if isinstance(other, AndExpr):
-            in_order = self.left == other.left and self.right == other.right
-            inverted = self.left == other.right and self.right == other.left
-            return in_order or inverted
-        return NotImplemented
-
-    @typing.override
-    def eval(self, sample: FloatArray) -> bool:
-        left = self.left.eval(sample)
-        right = self.right.eval(sample)
-        return _binop_handle_notimplemented(left, right, lambda l, r: l and r)
-
-    @typing.override
-    def _to_sympy(self, simplify: bool) -> sympy.Expr:
-        left = self.left.to_sympy(simplify)
-        right = self.right.to_sympy(simplify)
-        return _binop_handle_notimplemented(left, right, operator.and_)
+    @classmethod
+    def _cls_op(cls) -> cabc.Callable[[typing.Any, typing.Any], typing.Any]:
+        return operator.and_
 
 
+@typing.final
 @expr_dcls
-class OrExpr(Expr):
+class OrExpr(_AndOrExpr):
     "`left | right` expression."
 
-    left: Expr
-    "The LHS expression."
+    _OP_NAME = "|"
 
-    right: Expr
-    "The RHS expression."
+    def __init__(self, *exprs: Expr):
+        super().__init__(*exprs)
 
-    @typing.override
-    def __repr__(self) -> str:
-        return f"({self.left}) | ({self.right})"
-
-    @typing.override
-    def __invert__(self) -> Expr:
-        return ~self.left and ~self.right
-
-    def __eq__(self, other: object):
-        if isinstance(other, OrExpr):
-            in_order = self.left == other.left and self.right == other.right
-            inverted = self.left == other.right and self.right == other.left
-            return in_order or inverted
-        return NotImplemented
-
-    @typing.override
-    def eval(self, sample: FloatArray) -> bool:
-        left = self.left.eval(sample)
-        right = self.right.eval(sample)
-        return _binop_handle_notimplemented(left, right, lambda l, r: l or r)
-
-    @typing.override
-    def _to_sympy(self, simplify: bool) -> sympy.Expr:
-        left = self.left.to_sympy(simplify)
-        right = self.right.to_sympy(simplify)
-        return _binop_handle_notimplemented(left, right, operator.or_)
+    @classmethod
+    def _cls_op(cls) -> cabc.Callable[[typing.Any, typing.Any], typing.Any]:
+        return operator.or_
 
 
 def _binop_handle_notimplemented(
-    left, right, func: cabc.Callable[[object, object], typing.Any]
+    func: cabc.Callable[[object, object], typing.Any], left, right
 ):
     """
     Check if one side is `NotImplemented`, then return the otherside.

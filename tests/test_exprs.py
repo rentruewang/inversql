@@ -50,12 +50,12 @@ def cmp_3():
 
 @pytest.fixture
 def and_1(cmp_1: CmpExpr, cmp_2: CmpExpr):
-    return AndExpr(left=cmp_1, right=cmp_2)
+    return AndExpr(cmp_1, cmp_2)
 
 
 @pytest.fixture
 def or_1(and_1: CmpExpr, cmp_3: CmpExpr):
-    return OrExpr(left=and_1, right=cmp_3)
+    return OrExpr(and_1, cmp_3)
 
 
 def test_parse_sympy(or_1: Expr):
