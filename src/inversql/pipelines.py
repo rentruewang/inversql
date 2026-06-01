@@ -44,7 +44,7 @@ class Pipeline:
     "The joiner in the pipeline. Default to the `default_joiners` function."
 
     def __call__(self, *annotated: AnnotatedDF):
-        tables = {a.name: a.dataframe() for a in annotated}
+        tables = {a.name: a.df() for a in annotated}
 
         for result in self.joiner(tables):
             clf = tree.DecisionTreeClassifier()

@@ -82,7 +82,7 @@ class AnnotatedDF:
     name: str
     "The name of the dataframe."
 
-    df: NumericDF
+    num_df: NumericDF
     "The dataframe to operate on."
 
     col_names: set[str] = dcls.field(default_factory=set)
@@ -91,8 +91,8 @@ class AnnotatedDF:
     row_idxs: set[int] = dcls.field(default_factory=set)
     "Set of selected rows."
 
-    def dataframe(self) -> pd.DataFrame:
-        df = self.df.numeric().copy()
+    def df(self) -> pd.DataFrame:
+        df = self.num_df.numeric().copy()
 
         # Mark the row indices.
         df[_ROW_SELECTED_MARKER] = False
