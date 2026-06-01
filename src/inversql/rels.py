@@ -79,7 +79,7 @@ class Relation(abc.ABC):
         """
 
         df = self._to_pandas()
-        df = df[[c.column for c in self.columns]]
+        df = df[[str(c.ref()) for c in self.columns]]
 
         return df.reset_index(drop=True)
 
@@ -162,10 +162,17 @@ class SourceRelation(Relation):
     @property
     @typing.override
     def columns(self) -> set[ColLabel]:
+        prefix = self.name + "."
+
+        def drop_name_prefix(col_name: str):
+            assert col_name.startswith(prefix)
+            return col_name.removeprefix(prefix)
+
         selected = {col for _, col in self._cells}
+        df_cols = [drop_name_prefix(c) for c in self._df.columns]
         return {
             ColLabel(table=self.name, column=col, label=idx in selected)
-            for idx, col in enumerate(self._df.columns)
+            for idx, col in enumerate(df_cols)
         }
 
     def _row_idxs(self) -> list[int]:
@@ -223,7 +230,7 @@ class JoinRelation(Relation):
         col_left = self._left.columns
         col_right = self._right.columns
 
-        if col_left.isdisjoint(col_right):
+        if not col_left.isdisjoint(col_right):
             raise ValueError(
                 "Complex join types not supported yet. "
                 f"{col_left=} and {col_right=} should be disjoint."

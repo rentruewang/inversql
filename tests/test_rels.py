@@ -16,6 +16,11 @@ def right_rel(join_right_df: pd.DataFrame):
     return SourceRelation("join_right", join_right_df)
 
 
+@pytest.fixture(params=["inner", "cross"])
+def how(request: pytest.FixtureRequest):
+    return request.param
+
+
 @pytest.fixture
 def join_rel(left_rel: Relation, right_rel: Relation):
     return JoinRelation(
@@ -26,15 +31,27 @@ def join_rel(left_rel: Relation, right_rel: Relation):
 def test_left_rel(left_rel: SourceRelation):
     assert len(left_rel.data()) == 4
     assert {col.table for col in left_rel.columns} == {"join_left"}
-    labels = map(lambda x: "join_left." + x, "user_id,name,email".split(","))
-    assert {col.column for col in left_rel.columns} == set(labels)
+    labels = [f"join_left.{x}" for x in "user_id,name,email".split(",")]
+    assert {str(col.ref()) for col in left_rel.columns} == set(labels)
 
 
 def test_right_rel(right_rel: SourceRelation):
     assert len(right_rel.data()) == 4
     assert {col.table for col in right_rel.columns} == {"join_right"}
-    labels = map(lambda x: "join_right." + x, "user_id,order_id,amount".split(","))
-    assert {col.column for col in right_rel.columns} == set(labels)
+    labels = [f"join_right.{x}" for x in "user_id,order_id,amount".split(",")]
+    assert {str(col.ref()) for col in right_rel.columns} == set(labels)
+
+
+def test_join(
+    join_rel: JoinRelation, left_rel: SourceRelation, right_rel: SourceRelation
+):
+    assert join_rel.columns == {*left_rel.columns, *right_rel.columns}
+
+    if join_rel.how == "inner":
+        assert len(join_rel.data()) <= min(len(left_rel.data()), len(right_rel.data()))
+
+    elif join_rel.how == "cross":
+        assert len(join_rel.data()) == len(left_rel.data()) * len(right_rel.data())
 
 
 @pytest.fixture
