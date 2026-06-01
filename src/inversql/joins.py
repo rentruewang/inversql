@@ -1,12 +1,14 @@
 # Copyright (c) The InverSQL Authors - All Rights Reserved
 
+import abc
 import dataclasses as dcls
+import functools
 import typing
 from collections import abc as cabc
 
 import pandas as pd
 
-__all__ = ["Joiner", "cross_join"]
+__all__ = ["Joiner", "joiner_dcls", "CrossJoin", "SharedColNameJoiner"]
 
 
 @dcls.dataclass(frozen=True)
@@ -25,18 +27,24 @@ class JoinResult:
     "The columns that act as key during the join."
 
     def __bool__(self):
-        return self.valid()
+        return self.not_empty
 
-    def valid(self) -> bool:
+    @property
+    def not_empty(self) -> bool:
         "If the dataframe is empty, it's treated as invalid."
 
         return bool(len(self.df))
 
 
-@typing.runtime_checkable
-class Joiner(typing.Protocol):
+@typing.dataclass_transform()
+def joiner_dcls(cls):
+    return dcls.dataclass()(cls)
+
+
+@joiner_dcls
+class Joiner(abc.ABC):
     """
-    The interface for joining 2 dataframes, in every ways you can imagine.
+    The interface for joining 2 dataframes (so far), in every ways you can imagine.
 
     If the returned `pd.DataFrame` has `len` == 0, it means the join failed.
 
@@ -44,24 +52,44 @@ class Joiner(typing.Protocol):
     If nothing is yielded, that means no valid table can be had from this joiner.
     """
 
-    def __call__(
-        self, left: pd.DataFrame, right: pd.DataFrame, /
-    ) -> cabc.Iterator[JoinResult]:
+    dataframes: list[pd.DataFrame]
+    """
+    `pd.DataFrame`s to join.
+    """
+
+    def __call__(self) -> cabc.Iterator[JoinResult]:
+        for result in self.join():
+            if not result:
+                continue
+            yield result
+
+    @abc.abstractmethod
+    def join(self) -> cabc.Iterator[JoinResult]:
         """
         Yields all the potential tables that this `Joiner` knows.
         """
 
-        ...
+        raise NotImplementedError
 
 
-def cross_join(left: pd.DataFrame, right: pd.DataFrame):
-    """
-    Cross join gives the cartesian product.
-    """
+@joiner_dcls
+class CrossJoiner(Joiner):
 
-    yield JoinResult(df=left.merge(right, how="cross"), how="cross", on=[])
+    @typing.override
+    def join(self) -> cabc.Generator[JoinResult]:
+        df = functools.reduce(self.cross_join, self.dataframes)
+        yield JoinResult(df, how="cross", on=[])
+
+    @staticmethod
+    def cross_join(left: pd.DataFrame, right: pd.DataFrame) -> pd.DataFrame:
+        """
+        Cross join gives the cartesian product.
+        """
+
+        return left.merge(right, how="cross")
 
 
+@joiner_dcls
 class SharedColNameJoiner(Joiner):
     """
     Join 2 dataframes with their shared columns.
@@ -73,24 +101,20 @@ class SharedColNameJoiner(Joiner):
     """
 
     @typing.override
-    def __call__(self, left: pd.DataFrame, right: pd.DataFrame, /):
-        same_cols = list(self.same_column_names(left, right))
+    def join(self):
+        same_cols = list(self.same_column_names())
 
         for subset in all_subsets(same_cols):
-            # Don't yield the case where no columns are joined.
-            # Coupled with "inner" join empty columns would cause result to be empty.
-            if not subset:
-                continue
-
-            left_with_idx = left.set_index(same_cols)
-            right_with_idx = right.set_index(same_cols)
-            joined = left_with_idx.join(right_with_idx)
+            dfs = [df.set_index(subset) for df in self.dataframes]
+            join: typing.Any = pd.DataFrame.join
+            joined = functools.reduce(join, dfs)
             yield JoinResult(joined, how="inner", on=subset)
 
-    def same_column_names(self, left: pd.DataFrame, right: pd.DataFrame) -> set[str]:
-        left_names = set(left.columns)
-        right_names = set(right.columns)
-        return left_names & right_names
+    def same_column_names(self) -> set[str]:
+        names = [set(df.columns) for df in self.dataframes]
+        shared = functools.reduce(set.intersection, names)
+        assert isinstance(shared, set) and all(isinstance(k, str) for k in shared)
+        return shared
 
 
 def all_subsets(sequence: cabc.Sequence[str]) -> cabc.Generator[cabc.Sequence[str]]:

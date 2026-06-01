@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from inversql.joins import Joiner, SharedColNameJoiner, all_subsets, cross_join
+from inversql.joins import CrossJoiner, Joiner, SharedColNameJoiner, all_subsets
 
 
 def _sets():
@@ -21,18 +21,26 @@ def test_subsets(column_set):
 
 
 @pytest.fixture
-def shared_cn_joiner():
-    return SharedColNameJoiner()
+def cross_joiner(join_left_df: pd.DataFrame, join_right_df: pd.DataFrame):
+    return CrossJoiner([join_left_df, join_right_df])
 
 
-def test_cross_join(join_left_df: pd.DataFrame, join_right_df: pd.DataFrame) -> None:
+@pytest.fixture
+def shared_cn_joiner(join_left_df: pd.DataFrame, join_right_df: pd.DataFrame):
+    return SharedColNameJoiner([join_left_df, join_right_df])
+
+
+def test_cross_join(
+    cross_joiner: Joiner, join_left_df: pd.DataFrame, join_right_df: pd.DataFrame
+) -> None:
     # Unpack because this should only yield 1 result.
-    [joined] = cross_join(join_left_df, join_right_df)
+    [joined] = cross_joiner()
     assert len(joined.df) == len(join_left_df) * len(join_right_df)
 
 
-def test_cross_join_is_joiner():
-    assert isinstance(cross_join, Joiner)
+def test_joiner_subclasses():
+    assert issubclass(CrossJoiner, Joiner)
+    assert issubclass(SharedColNameJoiner, Joiner)
 
 
 def test_shared_col_name_joiner(
