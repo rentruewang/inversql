@@ -1,6 +1,5 @@
 # Copyright (c) The InverSQL Authors - All Rights Reserved
 
-import abc
 import dataclasses as dcls
 import functools
 import typing
@@ -8,7 +7,13 @@ from collections import abc as cabc
 
 import pandas as pd
 
-__all__ = ["Joiner", "joiner_dcls", "CrossJoin", "SharedColNameJoiner"]
+__all__ = [
+    "Joiner",
+    "JoinerList",
+    "FilteredJoiner",
+    "cross_joiner",
+    "shared_col_name_joiner",
+]
 
 
 @dcls.dataclass(frozen=True)
@@ -36,13 +41,8 @@ class JoinResult:
         return bool(len(self.df))
 
 
-@typing.dataclass_transform()
-def joiner_dcls(cls):
-    return dcls.dataclass()(cls)
-
-
-@joiner_dcls
-class Joiner(abc.ABC):
+@typing.runtime_checkable
+class Joiner(typing.Protocol):
     """
     The interface for joining 2 dataframes (so far), in every ways you can imagine.
 
@@ -52,45 +52,67 @@ class Joiner(abc.ABC):
     If nothing is yielded, that means no valid table can be had from this joiner.
     """
 
-    dataframes: list[pd.DataFrame]
-    """
-    `pd.DataFrame`s to join.
-    """
-
-    def __call__(self) -> cabc.Iterator[JoinResult]:
-        for result in self.join():
-            if not result:
-                continue
-            yield result
-
-    @abc.abstractmethod
-    def join(self) -> cabc.Iterator[JoinResult]:
+    def __call__(self, *dataframes: pd.DataFrame) -> cabc.Iterator[JoinResult]:
         """
         Yields all the potential tables that this `Joiner` knows.
         """
 
-        raise NotImplementedError
+        ...
 
 
-@joiner_dcls
-class CrossJoiner(Joiner):
+@dcls.dataclass
+class FilteredJoiner(Joiner):
+    """
+    `FilteredJoiner` filters the empty `Joiner`s, as those outputs are considered invalid.
+    """
+
+    joiner: Joiner
+    "The joiner whose output we want to filter."
+
+    def __call__(self, *dataframes: pd.DataFrame) -> cabc.Generator[JoinResult]:
+        for result in self.joiner(*dataframes):
+            if result:
+                yield result
+
+    @classmethod
+    def wrap(cls, joiner: Joiner) -> typing.Self:
+        "Wrap the `joiner` s.t. invalid outputs are discarded."
+        return joiner if isinstance(joiner, cls) else cls(joiner)
+
+
+@dcls.dataclass
+class JoinerList(Joiner):
+    """
+    A list of `Joiner`s.
+    """
+
+    joiners: list[Joiner]
+    "The joiners to iterate over."
 
     @typing.override
-    def join(self) -> cabc.Generator[JoinResult]:
-        df = functools.reduce(self.cross_join, self.dataframes)
-        yield JoinResult(df, how="cross", on=[])
+    def __call__(self, *dataframes: pd.DataFrame) -> cabc.Generator[JoinResult]:
+        for joiner in self._filtered_joiners:
+            yield from joiner(*dataframes)
 
-    @staticmethod
-    def cross_join(left: pd.DataFrame, right: pd.DataFrame) -> pd.DataFrame:
-        """
-        Cross join gives the cartesian product.
-        """
-
-        return left.merge(right, how="cross")
+    @property
+    def _filtered_joiners(self) -> cabc.Generator[Joiner]:
+        for joiner in self.joiners:
+            yield FilteredJoiner.wrap(joiner)
 
 
-@joiner_dcls
-class SharedColNameJoiner(Joiner):
+def cross_joiner(*dataframes: pd.DataFrame) -> cabc.Generator[JoinResult]:
+    """
+    Cross join gives the cartesian product.
+    """
+
+    def cross_join(l: pd.DataFrame, r: pd.DataFrame) -> pd.DataFrame:
+        return l.merge(r, how="cross")
+
+    df = functools.reduce(cross_join, dataframes)
+    yield JoinResult(df, how="cross", on=[])
+
+
+def shared_col_name_joiner(*dataframes: pd.DataFrame) -> cabc.Generator[JoinResult]:
     """
     Join 2 dataframes with their shared columns.
 
@@ -100,24 +122,27 @@ class SharedColNameJoiner(Joiner):
     So this would yield 2**n - 1 join results.
     """
 
-    @typing.override
-    def join(self):
-        same_cols = list(self.same_column_names())
+    same_cols = list(_same_column_names(*dataframes))
 
-        for subset in all_subsets(same_cols):
-            dfs = [df.set_index(subset) for df in self.dataframes]
-            join: typing.Any = pd.DataFrame.join
-            joined = functools.reduce(join, dfs)
-            yield JoinResult(joined, how="inner", on=subset)
+    for subset in all_subsets(same_cols):
+        if not subset:
+            continue
 
-    def same_column_names(self) -> set[str]:
-        names = [set(df.columns) for df in self.dataframes]
-        shared = functools.reduce(set.intersection, names)
-        assert isinstance(shared, set) and all(isinstance(k, str) for k in shared)
-        return shared
+        dfs = [df.set_index(subset) for df in dataframes]
+        join: typing.Any = pd.DataFrame.join
+        joined = functools.reduce(join, dfs)
+        yield JoinResult(joined, how="inner", on=subset)
 
 
-def all_subsets(sequence: cabc.Sequence[str]) -> cabc.Generator[cabc.Sequence[str]]:
+def _same_column_names(*dataframes: pd.DataFrame) -> set[str]:
+    "Get the column names that are shared."
+    names = [set(df.columns) for df in dataframes]
+    shared: set[str] = functools.reduce(set.intersection, names)
+    assert isinstance(shared, set) and all(isinstance(k, str) for k in shared)
+    return shared
+
+
+def all_subsets(sequence: cabc.Sequence[str]) -> cabc.Generator[list[str]]:
     """
     Yields all possible subsets recursively.
     """
@@ -130,4 +155,4 @@ def all_subsets(sequence: cabc.Sequence[str]) -> cabc.Generator[cabc.Sequence[st
 
     for subsets in all_subsets(drop_last):
         yield subsets
-        yield *subsets, last
+        yield [*subsets, last]

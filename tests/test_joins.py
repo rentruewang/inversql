@@ -3,7 +3,14 @@
 import pandas as pd
 import pytest
 
-from inversql.joins import CrossJoiner, Joiner, SharedColNameJoiner, all_subsets
+from inversql.joins import (
+    FilteredJoiner,
+    Joiner,
+    JoinerList,
+    all_subsets,
+    cross_joiner,
+    shared_col_name_joiner,
+)
 
 
 def _sets():
@@ -20,37 +27,24 @@ def test_subsets(column_set):
     assert len(list(all_subsets(column_set))) == 2 ** len(column_set)
 
 
-@pytest.fixture
-def cross_joiner(join_left_df: pd.DataFrame, join_right_df: pd.DataFrame):
-    return CrossJoiner([join_left_df, join_right_df])
+def test_joiner_instances():
+    assert isinstance(cross_joiner, Joiner)
+    assert isinstance(shared_col_name_joiner, Joiner)
+
+    assert issubclass(FilteredJoiner, Joiner)
+    assert issubclass(JoinerList, Joiner)
 
 
-@pytest.fixture
-def shared_cn_joiner(join_left_df: pd.DataFrame, join_right_df: pd.DataFrame):
-    return SharedColNameJoiner([join_left_df, join_right_df])
-
-
-def test_cross_join(
-    cross_joiner: Joiner, join_left_df: pd.DataFrame, join_right_df: pd.DataFrame
-) -> None:
+def test_cross_join(join_left_df: pd.DataFrame, join_right_df: pd.DataFrame) -> None:
     # Unpack because this should only yield 1 result.
-    [joined] = cross_joiner()
+    [joined] = FilteredJoiner(cross_joiner)(join_left_df, join_right_df)
     assert len(joined.df) == len(join_left_df) * len(join_right_df)
 
 
-def test_joiner_subclasses():
-    assert issubclass(CrossJoiner, Joiner)
-    assert issubclass(SharedColNameJoiner, Joiner)
-
-
 def test_shared_col_name_joiner(
-    shared_cn_joiner: Joiner, join_left_df: pd.DataFrame, join_right_df: pd.DataFrame
+    join_left_df: pd.DataFrame, join_right_df: pd.DataFrame
 ) -> None:
     # Unpack because this should only yield 1 result.
-    [joined] = shared_cn_joiner(join_left_df, join_right_df)
+    [joined] = FilteredJoiner(shared_col_name_joiner)(join_left_df, join_right_df)
     assert len(joined.df) == 5
     assert list(joined.df.index) == [1, 2, 2, 3, 4]
-
-
-def test_shared_col_name_joiner(shared_cn_joiner: Joiner):
-    assert isinstance(shared_cn_joiner, Joiner)
