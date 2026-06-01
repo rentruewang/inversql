@@ -282,6 +282,12 @@ class _AndOrExpr(Expr, abc.ABC):
     _OP_NAME: typing.ClassVar[str]
     "The name of the binary operator."
 
+    _CLS_OP: typing.ClassVar[cabc.Callable[[cabc.Iterable[bool]], bool]]
+    "Either `any` or `all`."
+
+    _SYMPY: typing.ClassVar[type[sympy.Expr]]
+    "Either `sympy.And` or `sympy.Or`."
+
     exprs: cabc.Sequence[Expr]
     "The exprs that are evaluated."
 
@@ -319,24 +325,14 @@ class _AndOrExpr(Expr, abc.ABC):
     @typing.override
     def eval(self, sample: FloatArray) -> bool:
         children = [expr.eval(sample) for expr in self.exprs]
-        return functools.reduce(self._operator, children)
+        children = [c for c in children if c is not NotImplemented]
+        return type(self)._CLS_OP(children)
 
     @typing.override
     def _to_sympy(self, simplify: bool) -> sympy.Expr:
         children = [expr.to_sympy(simplify) for expr in self.exprs]
-        return functools.reduce(self._operator, children)
-
-    @property
-    def _operator(self):
-        return functools.partial(_binop_handle_notimplemented, self._cls_op())
-
-    @classmethod
-    @abc.abstractmethod
-    def _cls_op(cls) -> cabc.Callable[[typing.Any, typing.Any], typing.Any]:
-        """
-        Either `operator.and_` or `operator.or_`.
-        """
-        raise NotImplementedError
+        children = [c for c in children if c is not NotImplemented]
+        return type(self)._SYMPY(*children)
 
 
 def _invert_and_or(cls: type[_AndOrExpr], *exprs: Expr) -> Expr:
@@ -353,13 +349,11 @@ class AndExpr(_AndOrExpr):
     "`left & right` expression."
 
     _OP_NAME = "&"
+    _CLS_OP: typing.ClassVar = all
+    _SYMPY: typing.ClassVar = sympy.And
 
     def __init__(self, *exprs: Expr):
         super().__init__(*exprs)
-
-    @classmethod
-    def _cls_op(cls) -> cabc.Callable[[typing.Any, typing.Any], typing.Any]:
-        return operator.and_
 
 
 @typing.final
@@ -368,35 +362,8 @@ class OrExpr(_AndOrExpr):
     "`left | right` expression."
 
     _OP_NAME = "|"
+    _CLS_OP: typing.ClassVar = any
+    _SYMPY: typing.ClassVar = sympy.Or
 
     def __init__(self, *exprs: Expr):
         super().__init__(*exprs)
-
-    @classmethod
-    def _cls_op(cls) -> cabc.Callable[[typing.Any, typing.Any], typing.Any]:
-        return operator.or_
-
-
-def _binop_handle_notimplemented(
-    func: cabc.Callable[[object, object], typing.Any], left, right
-):
-    """
-    Check if one side is `NotImplemented`, then return the otherside.
-    If both sides are `NotImplemented`, return `NotImplemented`.
-    If both sides are given, ues `func` to evalute the boolean expression.
-
-    This handles both sympy symbols and boolean evaluation.
-
-    `NotImplemented` values are given by `DontCareExpr.*`.
-    """
-
-    if left is NotImplemented and right is NotImplemented:
-        return NotImplemented
-
-    if left is NotImplemented:
-        return right
-
-    if right is NotImplemented:
-        return left
-
-    return func(left, right)
