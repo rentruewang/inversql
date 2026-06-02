@@ -146,6 +146,15 @@ class Relation(abc.ABC):
         raise NotImplementedError
 
 
+class CellLoc(typing.NamedTuple):
+    "The index of a cell's location."
+
+    row_idx: int
+    "The row index."
+    col_idx: int
+    "The column index."
+
+
 @typing.final
 class SourceRelation(Relation):
     "The relation backed by an external table."
@@ -157,7 +166,7 @@ class SourceRelation(Relation):
         self._df: pd.DataFrame = self._qualify_df(df)
         "The dataframe to operate on."
 
-        self._cells: set[tuple[int, int]] = set()
+        self._cells: set[CellLoc] = set()
         "Set of selected cells."
 
     def to_sqlglot(self) -> sqlg_expr.Select:
@@ -205,7 +214,12 @@ class SourceRelation(Relation):
         rows = {row for row, _ in self._cells}
         return sorted(rows)
 
-    def toggle(self, cell: tuple[int, int]) -> None:
+    @property
+    def cells(self) -> frozenset[CellLoc]:
+        "A frozen view of the current cells."
+        return frozenset(self._cells)
+
+    def toggle(self, cell: CellLoc) -> None:
         "Toggle the `cell` selection."
 
         if cell in self._cells:

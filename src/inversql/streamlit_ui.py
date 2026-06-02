@@ -87,7 +87,6 @@ def main() -> None:
         target = st.segmented_control("Selection type", _TARGETS, default="Cell")
         target = str(target or "Cell")
         must_have, must_not_have = _annotation_workbench(tables, target)
-        _metrics(must_have, must_not_have)
 
     with sql_col, st.container(border=True):
         _render_sql(_mock_sql(tables, must_have, must_not_have))
@@ -218,16 +217,6 @@ def _highlight_selection(
         if 0 <= cell.row < len(data) and cell.column in columns:
             styles.iat[cell.row, columns[cell.column]] = style
     return styles
-
-
-def _metrics(must_have: SelectionTotals, must_not_have: SelectionTotals) -> None:
-    cols = st.columns(6)
-    for col, label, value in zip(
-        cols,
-        ["Have rows", "Have cols", "Have cells", "Not rows", "Not cols", "Not cells"],
-        [*dcls.astuple(must_have), *dcls.astuple(must_not_have)],
-    ):
-        col.metric(label, value)
 
 
 def _selection_mode_for(target: str) -> str:
