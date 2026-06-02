@@ -83,7 +83,7 @@ class Joiner(typing.Protocol):
     If nothing is yielded, that means no valid table can be had from this joiner.
     """
 
-    def __call__(self, sources: dict[str, SourceRelation]) -> cabc.Iterator[Relation]:
+    def __call__(self, *sources: SourceRelation) -> cabc.Iterator[Relation]:
         """
         Yields all the potential tables that this `Joiner` knows.
         """
@@ -100,8 +100,8 @@ class FilteredJoiner(Joiner):
     joiner: Joiner
     "The joiner whose output we want to filter."
 
-    def __call__(self, sources: dict[str, SourceRelation]) -> cabc.Iterator[Relation]:
-        for result in self.joiner(sources):
+    def __call__(self, *sources: SourceRelation) -> cabc.Iterator[Relation]:
+        for result in self.joiner(*sources):
             if result:
                 yield result
 
@@ -121,9 +121,9 @@ class JoinerList(Joiner):
     "The joiners to iterate over."
 
     @typing.override
-    def __call__(self, sources: dict[str, SourceRelation]) -> cabc.Iterator[Relation]:
+    def __call__(self, *sources: SourceRelation) -> cabc.Iterator[Relation]:
         for joiner in self._filtered_joiners:
-            yield from joiner(sources)
+            yield from joiner(*sources)
 
     @property
     def _filtered_joiners(self) -> cabc.Generator[Joiner]:
@@ -131,7 +131,7 @@ class JoinerList(Joiner):
             yield FilteredJoiner.wrap(joiner)
 
 
-def cross_joiner(sources: dict[str, SourceRelation]) -> cabc.Iterator[Relation]:
+def cross_joiner(*sources: SourceRelation) -> cabc.Iterator[Relation]:
     """
     Cross join gives the cartesian product.
     """
@@ -139,12 +139,10 @@ def cross_joiner(sources: dict[str, SourceRelation]) -> cabc.Iterator[Relation]:
     def cross_join(l, r):
         return JoinRelation(l, r, "cross")
 
-    yield functools.reduce(cross_join, sources.values())
+    yield functools.reduce(cross_join, sources)
 
 
-def shared_col_name_joiner(
-    sources: dict[str, SourceRelation],
-) -> cabc.Generator[Relation]:
+def shared_col_name_joiner(*sources: SourceRelation) -> cabc.Generator[Relation]:
     """
     Join 2 dataframes with their shared columns.
 
@@ -160,7 +158,7 @@ def shared_col_name_joiner(
     if len(sources) <= 1:
         return
 
-    same_cols = list(_same_column_names(sources.values()))
+    same_cols = list(_same_column_names(sources))
 
     for subset in all_subsets(same_cols):
         if not subset:
@@ -170,7 +168,7 @@ def shared_col_name_joiner(
             join_key = tuple(subset)
             return JoinRelation(l, r, "inner", left_on=join_key, right_on=join_key)
 
-        yield functools.reduce(inner_join, sources.values())
+        yield functools.reduce(inner_join, sources)
 
 
 def _same_column_names(sources: cabc.Iterable[Relation]) -> set[str]:

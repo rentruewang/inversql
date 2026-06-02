@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from inversql.rels import JoinRelation, NumericDF, Relation, SourceRelation
+from inversql.rels import ColRef, JoinRelation, NumericDF, Relation, SourceRelation
 
 
 @pytest.fixture(params=["inner", "cross"])
@@ -23,6 +23,10 @@ def test_left_rel(left_rel: SourceRelation):
     assert {col.table for col in left_rel.columns} == {"join_left"}
     labels = [f"join_left.{x}" for x in "user_id,name,email".split(",")]
     assert {str(col.ref()) for col in left_rel.columns} == set(labels)
+
+
+def test_left_rel_has_marker(left_rel: SourceRelation):
+    assert ColRef.marker("join_left") in left_rel.to_pandas().columns
 
 
 def test_right_rel(right_rel: SourceRelation):

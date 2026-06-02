@@ -10,11 +10,11 @@ dependencies = [
     "pandas>=2.2.3",
     "rich>=14.0.0",
     "textual>=3.2.0",
-    "pypika>=0.48.9",
     "xgboost>=3.2.0",
     "lightgbm>=4.6.0",
     "sympy>=1.14.0",
     "streamlit>=1.53.0",
+    "sqlglot>=30.8.0",
 ]
 requires-python = ">=3.14,<3.15"
 readme = "README.md"
@@ -68,7 +68,6 @@ check_untyped_defs = true
 # Skipping analysis for some modules because they are not typed.
 [[tool.mypy.overrides]]
 module = [
-    "pypika.*",
     "sklearn.*",
     "sympy.*",
 ]

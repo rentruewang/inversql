@@ -11,10 +11,11 @@ from collections import abc as cabc
 
 import numpy as np
 import pandas as pd
-import pypika
+import sqlglot
 from numpy import typing as npt
-from pypika import queries as ppq
 from sklearn import tree
+from sqlglot import exp as sqlg_exp
+from sqlglot import expressions as sqlg_expr
 
 from inversql.exprs import simplify_expr
 from inversql.trees import sklearn_binary_tree_to_nodes
@@ -30,7 +31,7 @@ __all__ = [
     "NumericDF",
 ]
 
-type _SupportedJoinTypes = typing.Literal["left", "right", "outer", "inner", "cross"]
+type _SupportedJoinTypes = typing.Literal["left", "right", "inner", "cross"]
 type _JoinKey = str | tuple[str, ...] | None
 
 _ROW_MARKER = "__inversql_selected__"
@@ -78,9 +79,9 @@ class Relation(abc.ABC):
     """
 
     @abc.abstractmethod
-    def sql(self) -> ppq.QueryBuilder:
+    def to_sqlglot(self) -> sqlg_expr.Select:
         """
-        Return pypika objects.
+        Return sqlglot objects.
         """
 
         raise NotImplementedError
@@ -91,7 +92,7 @@ class Relation(abc.ABC):
         Strip the internal tracking information.
         """
 
-        df = self._to_pandas()
+        df = self.to_pandas()
         df = df[[str(c.ref()) for c in self.columns]]
 
         return df.reset_index(drop=True)
@@ -101,7 +102,7 @@ class Relation(abc.ABC):
         Get the labels of the tables, marked in the source with `row_idxs`.
         """
 
-        df = self._to_pandas()
+        df = self.to_pandas()
         markers = [f"{name}.{_ROW_MARKER}" for name in self.sources.keys()]
 
         # If any of the markers is true, it is included.
@@ -124,7 +125,10 @@ class Relation(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def _to_pandas(self) -> pd.DataFrame:
+    def to_pandas(self) -> pd.DataFrame:
+        """
+        The underlying dataframe passed. Contains tracking info like markers.
+        """
         raise NotImplementedError
 
     @functools.cached_property
@@ -152,19 +156,15 @@ class SourceRelation(Relation):
         self._cells: set[tuple[int, int]] = set()
         "Set of selected cells."
 
-    def sql(self) -> ppq.QueryBuilder:
-        return pypika.Query.from_(self.pypika_table)
-
-    @property
-    def pypika_table(self) -> pypika.Table:
-        return pypika.Table(self.name)
+    def to_sqlglot(self) -> sqlg_expr.Select:
+        return sqlglot.select("*").from_(self.name)
 
     @property
     def name(self) -> str:
         return self._name
 
     @typing.override
-    def _to_pandas(self) -> pd.DataFrame:
+    def to_pandas(self) -> pd.DataFrame:
         df = self._df.copy()
 
         # Mark the row indices.
@@ -231,67 +231,25 @@ class JoinRelation(Relation):
         self._left_on = left_on
         self._right_on = right_on
 
-    def sql(self) -> ppq.QueryBuilder:
-        left_sql = self.left.sql()
-        right_sql = self.right.sql()
+    def to_sqlglot(self) -> sqlg_expr.Select:
+        left_sql = self.left.to_sqlglot()
+        right_sql = self.right.to_sqlglot()
 
         # Cross does not need any keys.
         if self.how == "cross":
-            return left_sql.join(right_sql).cross()
+            return sqlglot.select("*").from_(left_sql).from_(right_sql)
 
         else:
             crit = self._gen_crit()
-            return left_sql.join(right_sql, how=self._pypika_join).on(crit)
+            return left_sql.join(right_sql, join_type=self.how.upper(), on=crit)
 
     def _gen_crit(self):
-        tables = {key: src.pypika_table for key, src in self.sources.items()}
+        generator = _CriterionGenerator()
+        return generator(self)
 
-        # Some helper functions here.
-        def _pypika_col(col: str):
-            ref = ColRef(*col.split("."))
-            return getattr(tables[ref.table], ref.column)
-
-        def _pypika_criterion(left: str, right: str) -> pypika.Criterion:
-            return _pypika_col(left) == _pypika_col(right)
-
-        # Handle the `str` case.
-        if isinstance(self.left_on, str):
-            assert isinstance(self.right_on, str)
-            criterion = _pypika_criterion(self.left_on, self.right_on)
-
-        # Handle the case where there are multiple join keys.
-        elif _is_tuple_str(self.left_on):
-            assert _is_tuple_str(self.right_on)
-            assert len(self.left_on) == len(self.right_on)
-            criterion = functools.reduce(
-                operator.and_,
-                [_pypika_criterion(l, r) for l, r in zip(self.left_on, self.right_on)],
-            )
-
-        else:
-            raise ValueError(
-                f"{self.left_on} or {self.right_on} invalid for join type {self.how}."
-            )
-
-    @property
-    def _pypika_join(self):
-        match self.how:
-            case "inner":
-                return pypika.JoinType.inner
-            case "outer":
-                return pypika.JoinType.outer
-            case "cross":
-                return pypika.JoinType.cross
-            case "left":
-                return pypika.JoinType.left
-            case "right":
-                return pypika.JoinType.right
-
-        raise RuntimeError("Unreachable")
-
-    def _to_pandas(self) -> pd.DataFrame:
-        left = self._left._to_pandas()
-        right = self._right._to_pandas()
+    def to_pandas(self) -> pd.DataFrame:
+        left = self._left.to_pandas()
+        right = self._right.to_pandas()
 
         return pd.merge(
             left, right, how=self.how, left_on=self.left_on, right_on=self.right_on
@@ -335,6 +293,37 @@ class JoinRelation(Relation):
     @property
     def right_on(self) -> _JoinKey:
         return _join_key(self.right.columns, self._right_on)
+
+
+@dcls.dataclass(frozen=True)
+class _CriterionGenerator:
+    def __call__(self, rel: JoinRelation):
+        # Handle the `str` case.
+        if isinstance(rel.left_on, str):
+            assert isinstance(rel.right_on, str)
+            return self._criterion(rel.left_on, rel.right_on)
+
+        # Handle the case where there are multiple join keys.
+        elif _is_tuple_str(rel.left_on):
+            assert _is_tuple_str(rel.right_on)
+            assert len(rel.left_on) == len(rel.right_on)
+            return functools.reduce(
+                operator.and_,
+                [self._criterion(l, r) for l, r in zip(rel.left_on, rel.right_on)],
+            )
+
+        else:
+            raise ValueError(
+                f"{rel.left_on} or {rel.right_on} invalid for join type {rel.how}."
+            )
+
+    def _criterion(self, left: str, right: str) -> sqlg_expr.Expr:
+        left_ref = ColRef(*left.split("."))
+        right_ref = ColRef(*right.split("."))
+
+        left_expr = sqlg_exp.column(left_ref.column, table=left_ref.table)
+        right_expr = sqlg_exp.column(right_ref.column, table=right_ref.table)
+        return sqlg_exp.EQ(this=left_expr, expression=right_expr)
 
 
 def _is_tuple_str(obj) -> typing.TypeIs[tuple[str, ...]]:
@@ -415,9 +404,9 @@ class SkLearnTreeRelation(Relation):
     def __init__(self, input: Relation, clf: tree.DecisionTreeClassifier) -> None:
         self._input = input
         self._clf = clf
-        self._save_node_expr()
+        self._save_predicted()
 
-    def sql(self) -> ppq.QueryBuilder:
+    def to_sqlglot(self) -> sqlg_expr.Select:
         df_cols = self._numeric_df.columns
 
         cols_labels_ordered = {str(col.ref()): col for col in self.columns}
@@ -425,25 +414,25 @@ class SkLearnTreeRelation(Relation):
 
         ordered_labels = [cols_labels_ordered[c] for c in df_cols]
 
-        terms = [getattr(pypika.Table(cl.table), cl.column) for cl in ordered_labels]
+        terms = [str(cl.ref()) for cl in ordered_labels]
         expr = simplify_expr(self._tree_node.truth_exprs())
-        criterion = expr.to_pypika(terms)
+        criterion = expr.to_sqlglot(terms)
 
-        return self.input.sql().where(criterion)
+        return self.input.to_sqlglot().where(criterion)
 
     @property
     def columns(self) -> set[ColLabel]:
         return self._input.columns
 
     @typing.no_type_check
-    def _to_pandas(self) -> pd.DataFrame:
+    def to_pandas(self) -> pd.DataFrame:
         """
         Map to original and then do the conversion.
         """
 
-        return self._numeric_df.original().iloc[self._predicted]
+        return self.input.to_pandas()
 
-    def _save_node_expr(self) -> None:
+    def _save_predicted(self) -> None:
         num_df = self._numeric_df.numeric()
 
         self.clf.fit(np.asarray(num_df), self.row_labels())
@@ -473,9 +462,9 @@ class SelectRelation(Relation):
         self._input = input
         self._cols = cols
 
-    def _to_pandas(self) -> pd.DataFrame:
+    def to_pandas(self) -> pd.DataFrame:
         cols = [str(c.ref()) for c in self.columns]
-        return self.input._to_pandas()[cols]
+        return self.input.to_pandas()[cols]
 
     def _sources(self):
         yield from self.input._sources()
@@ -493,6 +482,6 @@ class SelectRelation(Relation):
     def cols(self) -> tuple[str, ...]:
         return self._cols
 
-    def sql(self):
-        sql = self.input.sql()
+    def to_sqlglot(self):
+        sql = self.input.to_sqlglot()
         return sql.select(*self.cols)

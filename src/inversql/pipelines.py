@@ -39,7 +39,7 @@ class Pipeline:
     joiner: Joiner = dcls.field(default_factory=default_joiners)
     "The joiner in the pipeline. Default to the `default_joiners` function."
 
-    def __call__(self, tables: dict[str, SourceRelation]) -> cabc.Generator[str]:
-        for result in self.joiner(tables):
+    def __call__(self, *tables: SourceRelation) -> cabc.Generator[str]:
+        for result in self.joiner(*tables):
             clf = SkLearnTreeRelation(result, tree.DecisionTreeClassifier())
-            yield clf.sql().get_sql()
+            yield clf.to_sqlglot().sql()

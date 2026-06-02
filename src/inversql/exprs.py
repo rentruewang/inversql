@@ -10,7 +10,7 @@ import typing
 from collections import abc as cabc
 
 import sympy
-from pypika import terms as ppt
+from sqlglot import exp as sqlg_exp
 
 from inversql._utils import FloatArray
 
@@ -83,7 +83,7 @@ class Expr(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def to_pypika(self, terms: cabc.Sequence[ppt.Term]) -> ppt.Term:
+    def to_sqlglot(self, terms: cabc.Sequence[str]):
         raise NotImplementedError
 
 
@@ -259,8 +259,8 @@ class CmpExpr(Expr):
         symbol = sympy.Symbol(feature_name(self.feat_idx))
         return self.cmp.sympy_type(symbol, self.threshold)
 
-    def to_pypika(self, terms: cabc.Sequence[ppt.Term]) -> ppt.Term:
-        return self.cmp.op(terms[self.feat_idx], self.threshold)
+    def to_sqlglot(self, terms: cabc.Sequence[str]):
+        return self.cmp.op(sqlg_exp.column(terms[self.feat_idx]), self.threshold)
 
 
 class _AndOrExprMixin(Expr, abc.ABC):
@@ -324,8 +324,8 @@ class _AndOrExprMixin(Expr, abc.ABC):
         assert all(c is not NotImplemented for c in children)
         return type(self)._SYMPY(*children)
 
-    def to_pypika(self, terms: cabc.Sequence[ppt.Term]) -> ppt.Term:
-        children = [expr.to_pypika(terms) for expr in self.exprs]
+    def to_sqlglot(self, terms: cabc.Sequence[str]):
+        children = [expr.to_sqlglot(terms) for expr in self.exprs]
         return functools.reduce(type(self)._CLS_BIN_OP, children)
 
 
