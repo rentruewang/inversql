@@ -5,14 +5,20 @@
 import abc
 import dataclasses as dcls
 import functools
+import math
+import operator
 import typing
 from collections import abc as cabc
 
 import numpy as np
 import pandas as pd
+import sqlglot
 from numpy import typing as npt
 from sklearn import tree
+from sqlglot import exp as sqlg_exp
+from sqlglot import expressions as sqlg_expr
 
+from inversql.exprs import AndExpr, CmpExpr, CmpOp, Expr, OrExpr, simplify_expr
 from inversql.trees import sklearn_binary_tree_to_nodes
 
 __all__ = [
@@ -26,7 +32,7 @@ __all__ = [
     "NumericDF",
 ]
 
-type _SupportedJoinTypes = typing.Literal["left", "right", "outer", "inner", "cross"]
+type _SupportedJoinTypes = typing.Literal["left", "right", "inner", "cross"]
 type _JoinKey = str | tuple[str, ...] | None
 
 _ROW_MARKER = "__inversql_selected__"
@@ -73,13 +79,24 @@ class Relation(abc.ABC):
     `Relation` is a relational construct with tracking info.
     """
 
+    def __str__(self):
+        return str(self.to_sqlglot())
+
+    @abc.abstractmethod
+    def to_sqlglot(self) -> sqlg_expr.Select:
+        """
+        Return sqlglot objects.
+        """
+
+        raise NotImplementedError
+
     def data(self) -> pd.DataFrame:
         """
         Get the dataframe represented by the current `Relation`.
         Strip the internal tracking information.
         """
 
-        df = self._to_pandas()
+        df = self.to_pandas()
         df = df[[str(c.ref()) for c in self.columns]]
 
         return df.reset_index(drop=True)
@@ -89,7 +106,7 @@ class Relation(abc.ABC):
         Get the labels of the tables, marked in the source with `row_idxs`.
         """
 
-        df = self._to_pandas()
+        df = self.to_pandas()
         markers = [f"{name}.{_ROW_MARKER}" for name in self.sources.keys()]
 
         # If any of the markers is true, it is included.
@@ -112,7 +129,10 @@ class Relation(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def _to_pandas(self) -> pd.DataFrame:
+    def to_pandas(self) -> pd.DataFrame:
+        """
+        The underlying dataframe passed. Contains tracking info like markers.
+        """
         raise NotImplementedError
 
     @functools.cached_property
@@ -140,12 +160,15 @@ class SourceRelation(Relation):
         self._cells: set[tuple[int, int]] = set()
         "Set of selected cells."
 
+    def to_sqlglot(self) -> sqlg_expr.Select:
+        return sqlglot.select("*").from_(self.name)
+
     @property
     def name(self) -> str:
         return self._name
 
     @typing.override
-    def _to_pandas(self) -> pd.DataFrame:
+    def to_pandas(self) -> pd.DataFrame:
         df = self._df.copy()
 
         # Mark the row indices.
@@ -154,6 +177,8 @@ class SourceRelation(Relation):
         df[marker] = False
         df.loc[self._row_idxs(), marker] = True
         assert df.notna().all().all(), "DataFrame contains NaN values!"
+
+        assert marker in df.columns
         return df
 
     @typing.override
@@ -212,14 +237,29 @@ class JoinRelation(Relation):
         self._left_on = left_on
         self._right_on = right_on
 
-    def _to_pandas(self) -> pd.DataFrame:
-        left = self._left._to_pandas()
-        right = self._right._to_pandas()
+    def to_sqlglot(self) -> sqlg_expr.Select:
+        left_sql = self.left.to_sqlglot()
+        right_sql = self.right.to_sqlglot()
 
-        left_on = _join_key(self.left.columns, self.left_on)
-        right_on = _join_key(self.right.columns, self.right_on)
+        # Cross does not need any keys.
+        if self.how == "cross":
+            return sqlglot.select("*").from_(left_sql).from_(right_sql)
 
-        return pd.merge(left, right, how=self.how, left_on=left_on, right_on=right_on)
+        else:
+            crit = self._gen_crit()
+            return left_sql.join(right_sql, join_type=self.how.upper(), on=crit)
+
+    def _gen_crit(self):
+        generator = _CriterionGenerator()
+        return generator(self)
+
+    def to_pandas(self) -> pd.DataFrame:
+        left = self._left.to_pandas()
+        right = self._right.to_pandas()
+
+        return pd.merge(
+            left, right, how=self.how, left_on=self.left_on, right_on=self.right_on
+        )
 
     @property
     def columns(self) -> set[ColLabel]:
@@ -254,11 +294,46 @@ class JoinRelation(Relation):
 
     @property
     def left_on(self) -> _JoinKey:
-        return self._left_on
+        return _join_key(self.left.columns, self._left_on)
 
     @property
     def right_on(self) -> _JoinKey:
-        return self._right_on
+        return _join_key(self.right.columns, self._right_on)
+
+
+@dcls.dataclass(frozen=True)
+class _CriterionGenerator:
+    def __call__(self, rel: JoinRelation):
+        # Handle the `str` case.
+        if isinstance(rel.left_on, str):
+            assert isinstance(rel.right_on, str)
+            return self._criterion(rel.left_on, rel.right_on)
+
+        # Handle the case where there are multiple join keys.
+        elif _is_tuple_str(rel.left_on):
+            assert _is_tuple_str(rel.right_on)
+            assert len(rel.left_on) == len(rel.right_on)
+            return functools.reduce(
+                operator.and_,
+                [self._criterion(l, r) for l, r in zip(rel.left_on, rel.right_on)],
+            )
+
+        else:
+            raise ValueError(
+                f"{rel.left_on} or {rel.right_on} invalid for join type {rel.how}."
+            )
+
+    def _criterion(self, left: str, right: str) -> sqlg_expr.Expr:
+        left_ref = ColRef(*left.split("."))
+        right_ref = ColRef(*right.split("."))
+
+        left_expr = sqlg_exp.column(left_ref.column, table=left_ref.table)
+        right_expr = sqlg_exp.column(right_ref.column, table=right_ref.table)
+        return sqlg_exp.EQ(this=left_expr, expression=right_expr)
+
+
+def _is_tuple_str(obj) -> typing.TypeIs[tuple[str, ...]]:
+    return isinstance(obj, tuple) and all(isinstance(elem, str) for elem in obj)
 
 
 def _join_key(cols: set[ColLabel], target: _JoinKey) -> _JoinKey:
@@ -285,24 +360,35 @@ class NumericDF:
         df = df.copy()
 
         non_numeric_cols = df.select_dtypes(exclude=["number"]).columns
+        mappings: dict[str, list[str]] = {}
 
-        mappings: dict[str, dict[int, pd.Categorical]] = {}
-
-        # Convert the non numeric with categorical.
+        # Convert the non numeric with categorical (only string supported).
         for col in non_numeric_cols:
-            df[col] = df[col].astype("category")
-
-            mappings[col] = {
-                code: category for code, category in enumerate(df[col].cat.categories)
-            }
-
-            df[col] = df[col].cat.codes
+            self._convert_str_columns(df, col, mappings)
 
         self._numeric = df
         "The dataframe that is all numeric."
 
-        self._mappings = mappings
-        "Mapping of column -> codes -> category."
+        self._rev_mappings = mappings
+        "Mapping of column -> list of categories (only strings)."
+
+    def _convert_str_columns(
+        self, df: pd.DataFrame, col: str, mappings: dict[str, list[str]]
+    ) -> None:
+        string_values: set[str] = set(df[col])
+
+        if not all(isinstance(val, str) for val in string_values):
+            raise NotImplementedError(
+                "Only string columns or numeric columns are now supported."
+            )
+
+        sorted_vaues = sorted(string_values)
+
+        string_idx = {string: idx for idx, string in enumerate(sorted_vaues)}
+        indices = [string_idx[string] for string in df[col]]
+
+        df[col] = indices
+        mappings[col] = sorted_vaues
 
     def numeric(self) -> pd.DataFrame:
         "Get the numeric version of the dataframe (pre computed)."
@@ -312,7 +398,7 @@ class NumericDF:
     def revert(self, num_df: pd.DataFrame) -> pd.DataFrame:
         "Revert the numeric dataframe to the ones with cateogies."
 
-        for column, code_category in self._mappings.items():
+        for column, code_category in self._rev_mappings.items():
             if column not in num_df:
                 continue
 
@@ -329,31 +415,82 @@ class NumericDF:
         "Pass through the columns of underlying df."
         return self._numeric.columns
 
+    def expr_to_sqlglot(self, expr: Expr, terms: list[str]) -> sqlg_expr.Select:
+        # Visitor for AND / OR.
+        def _and_or_to_sqlglot(expr: AndExpr | OrExpr):
+            children = [self.expr_to_sqlglot(expr, terms) for expr in expr.exprs]
+            return functools.reduce(type(expr).CLS_BIN_OP, children)
+
+        # Visitor for CMP.
+        def _cmp_to_sqlglot(expr: CmpExpr):
+            cmp_op = expr.cmp
+            threshold: int | float | str = expr.threshold
+
+            if (feature := terms[expr.feat_idx]) in self._rev_mappings:
+                feature_map = self._rev_mappings[feature]
+
+                # Since this is categories, find the closest.
+                # E.g. >= 1.5, find >= 2.
+
+                match expr.cmp:
+                    case CmpOp.EQ | CmpOp.NE:
+                        cmp_op = expr.cmp
+                        threshold = feature_map[int(expr.threshold)]
+                    case CmpOp.GE | CmpOp.GT:
+                        cmp_op = CmpOp.GE
+                        threshold = feature_map[math.ceil(expr.threshold)]
+                    case CmpOp.LE | CmpOp.LT:
+                        cmp_op = CmpOp.LE
+                        threshold = feature_map[math.floor(expr.threshold)]
+
+            return cmp_op.op(sqlg_exp.column(terms[expr.feat_idx]), threshold)
+
+        match expr:
+            case AndExpr() | OrExpr():
+                return _and_or_to_sqlglot(expr)
+            case CmpExpr():
+                return _cmp_to_sqlglot(expr)
+            case _:
+                raise TypeError(f"Not supported {type(expr)=}.")
+
 
 @typing.final
 class SkLearnTreeRelation(Relation):
     def __init__(self, input: Relation, clf: tree.DecisionTreeClassifier) -> None:
         self._input = input
         self._clf = clf
-        self._save_node_expr()
+        self._save_predicted()
+
+    def to_sqlglot(self) -> sqlg_expr.Select:
+        df_cols = self._numeric_df.columns
+
+        cols_labels_ordered = {str(col.ref()): col for col in self.columns}
+        assert len(cols_labels_ordered) == len(self.columns)
+
+        ordered_labels = [cols_labels_ordered[c] for c in df_cols]
+
+        terms = [str(cl.ref()) for cl in ordered_labels]
+        expr = simplify_expr(self._tree_node.truth_exprs())
+        criterion = self._numeric_df.expr_to_sqlglot(expr, terms)
+        return self.input.to_sqlglot().where(criterion)
 
     @property
     def columns(self) -> set[ColLabel]:
         return self._input.columns
 
     @typing.no_type_check
-    def _to_pandas(self) -> pd.DataFrame:
+    def to_pandas(self) -> pd.DataFrame:
         """
         Map to original and then do the conversion.
         """
 
-        return self._numeric_df.original().iloc[self._predicted]
+        return self.input.to_pandas()
 
-    def _save_node_expr(self) -> None:
+    def _save_predicted(self) -> None:
         num_df = self._numeric_df.numeric()
 
         self.clf.fit(np.asarray(num_df), self.row_labels())
-        self._node = sklearn_binary_tree_to_nodes(self.clf)
+        self._tree_node = sklearn_binary_tree_to_nodes(self.clf)
         self._predicted = self.clf.predict(np.asarray(num_df))
         assert np.all(self._predicted == self.row_labels())
 
@@ -379,9 +516,9 @@ class SelectRelation(Relation):
         self._input = input
         self._cols = cols
 
-    def _to_pandas(self) -> pd.DataFrame:
+    def to_pandas(self) -> pd.DataFrame:
         cols = [str(c.ref()) for c in self.columns]
-        return self.input._to_pandas()[cols]
+        return self.input.to_pandas()[cols]
 
     def _sources(self):
         yield from self.input._sources()
@@ -398,3 +535,7 @@ class SelectRelation(Relation):
     @property
     def cols(self) -> tuple[str, ...]:
         return self._cols
+
+    def to_sqlglot(self):
+        sql = self.input.to_sqlglot()
+        return sql.select(*self.cols)

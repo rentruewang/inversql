@@ -26,10 +26,10 @@ def column_set(request):
 
 @pytest.fixture
 def tables(join_left_df: pd.DataFrame, join_right_df: pd.DataFrame):
-    return {
-        "join_left_df": SourceRelation("join_left", join_left_df),
-        "join_right_df": SourceRelation("join_right", join_right_df),
-    }
+    return [
+        SourceRelation("join_left", join_left_df),
+        SourceRelation("join_right", join_right_df),
+    ]
 
 
 def test_subsets(column_set):
@@ -45,16 +45,16 @@ def test_joiner_instances():
 
 
 def test_cross_join(
-    tables: dict[str, SourceRelation],
+    tables: list[SourceRelation],
     join_left_df: pd.DataFrame,
     join_right_df: pd.DataFrame,
 ) -> None:
     # Unpack because this should only yield 1 result.
-    [joined] = FilteredJoiner(cross_joiner)(tables)
+    [joined] = FilteredJoiner(cross_joiner)(*tables)
     assert len(joined.data()) == len(join_left_df) * len(join_right_df)
 
 
-def test_shared_col_name_joiner(tables: dict[str, SourceRelation]) -> None:
+def test_shared_col_name_joiner(tables: list[SourceRelation]) -> None:
     # Unpack because this should only yield 1 result.
-    [joined] = FilteredJoiner(shared_col_name_joiner)(tables)
+    [joined] = FilteredJoiner(shared_col_name_joiner)(*tables)
     assert len(joined.data()) == 4

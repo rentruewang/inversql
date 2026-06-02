@@ -3,17 +3,7 @@
 import pandas as pd
 import pytest
 
-from inversql.rels import JoinRelation, NumericDF, Relation, SourceRelation
-
-
-@pytest.fixture
-def left_rel(join_left_df: pd.DataFrame):
-    return SourceRelation("join_left", join_left_df)
-
-
-@pytest.fixture
-def right_rel(join_right_df: pd.DataFrame):
-    return SourceRelation("join_right", join_right_df)
+from inversql.rels import ColRef, JoinRelation, NumericDF, Relation, SourceRelation
 
 
 @pytest.fixture(params=["inner", "cross"])
@@ -33,6 +23,10 @@ def test_left_rel(left_rel: SourceRelation):
     assert {col.table for col in left_rel.columns} == {"join_left"}
     labels = [f"join_left.{x}" for x in "user_id,name,email".split(",")]
     assert {str(col.ref()) for col in left_rel.columns} == set(labels)
+
+
+def test_left_rel_has_marker(left_rel: SourceRelation):
+    assert str(ColRef.marker("join_left")) in left_rel.to_pandas().columns
 
 
 def test_right_rel(right_rel: SourceRelation):
@@ -58,7 +52,7 @@ def test_join_len(
         assert len(join_rel.data()) == len(left_rel.data()) * len(right_rel.data())
 
     else:
-        raise NotImplementedError("Not present in test cases.")
+        raise ValueError("Not present in test cases.")
 
 
 @pytest.fixture
