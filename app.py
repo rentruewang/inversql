@@ -57,7 +57,7 @@ def _css() -> None:
     st.html("""
         <style>
         section[data-testid="stSidebar"], div[data-testid="collapsedControl"] {display:none;}
-        .block-container {max-width:1500px; padding-top:1.4rem;}
+        .block-container {max-width:1500px; padding-top:5rem;}
         h1, h2, h3 {letter-spacing:0;}
         textarea {font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;}
         </style>
@@ -185,24 +185,6 @@ def _gen_sql_and_render(*tables: SourceRelation) -> None:
     main, *candidates = sqls
     st.subheader("Generated SQL")
     st.code(main, "sql", wrap_lines=True)
-    # st.subheader("Candidate SQL")
-    # for i, candidate in enumerate(candidates, 1):
-    #     with st.expander(f"Candidate {i}", expanded=i == 1):
-    #         st.html(
-    #             f"""
-    #             <div style="
-    #                 opacity: 0.55;
-    #                 font-family: monospace;
-    #                 background: #f6f8fa;
-    #                 padding: 10px;
-    #                 border-radius: 6px;
-    #                 white-space: pre;
-    #                 overflow-x: auto;
-    #             ">
-    #             {html.escape(candidate)}
-    #             </div>
-    #             """,
-    #         )
 
 
 if __name__ == "__main__":
