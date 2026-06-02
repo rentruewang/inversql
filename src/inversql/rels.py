@@ -24,6 +24,7 @@ from inversql.trees import sklearn_binary_tree_to_nodes
 __all__ = [
     "ColRef",
     "ColLabel",
+    "CellLoc",
     "Relation",
     "SourceRelation",
     "JoinRelation",
@@ -159,14 +160,16 @@ class CellLoc(typing.NamedTuple):
 class SourceRelation(Relation):
     "The relation backed by an external table."
 
-    def __init__(self, name: str, df: pd.DataFrame) -> None:
+    def __init__(
+        self, name: str, df: pd.DataFrame, cells: cabc.Iterable[CellLoc] = ()
+    ) -> None:
         self._name: str = name
         "The name of the dataframe."
 
         self._df: pd.DataFrame = self._qualify_df(df)
         "The dataframe to operate on."
 
-        self._cells: set[CellLoc] = set()
+        self._cells: set[CellLoc] = set(cells)
         "Set of selected cells."
 
     def to_sqlglot(self) -> sqlg_expr.Select:
@@ -218,14 +221,6 @@ class SourceRelation(Relation):
     def cells(self) -> frozenset[CellLoc]:
         "A frozen view of the current cells."
         return frozenset(self._cells)
-
-    def toggle(self, cell: CellLoc) -> None:
-        "Toggle the `cell` selection."
-
-        if cell in self._cells:
-            self._cells.remove(cell)
-        else:
-            self._cells.add(cell)
 
     def _qualify_df(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()

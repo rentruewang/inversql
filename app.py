@@ -1,16 +1,58 @@
 # Copyright (c) The InverSQL Authors - All Rights Reserved
 
-from inversql.pipelines import Pipeline
+from mdit_py_plugins.colon_fence import _render
+import collections
+import dataclasses as dcls
 import html
 import pathlib
+import typing
+from collections import abc as cabc
 
 import pandas as pd
 import streamlit as st
 from streamlit.runtime import uploaded_file_manager as up_man
 
-from inversql.rels import SourceRelation
+from inversql.pipelines import Pipeline
+from inversql.rels import CellLoc, SourceRelation
+import contextlib as ctxl
 
 _LOGO_PATH = pathlib.Path(__file__).parent / "assets" / "logo.svg"
+
+
+@dcls.dataclass
+class SessState:
+    KEY: typing.ClassVar[str] = "__session_state__"
+
+    cells: dict[str, set[CellLoc]] = dcls.field(
+        default_factory=lambda: collections.defaultdict(set)
+    )
+    "The selected cells, by tables."
+
+    def commit(self):
+        "Commit the changes back to state."
+        st.session_state[self.KEY] = self
+
+    @classmethod
+    @ctxl.contextmanager
+    def get(cls) -> cabc.Generator[typing.Self]:
+        "Get the state, you can modify it. By end of scope it will commit back."
+        state = cls.fetch()
+        try:
+            yield state
+        finally:
+            state.commit()
+
+    @classmethod
+    def fetch(cls) -> typing.Self:
+        "Get the current states."
+        if cls.KEY in st.session_state:
+            result = st.session_state[cls.KEY]
+            return result
+
+        else:
+            result = cls()
+            st.session_state[cls.KEY] = result
+            return result
 
 
 def _css() -> None:
@@ -28,17 +70,17 @@ def _header() -> None:
     _, center, _ = st.columns([2.2, 1, 2.2])
     with center:
         assert _LOGO_PATH.exists()
-        st.image(str(_LOGO_PATH), use_container_width=True)
+        st.image(str(_LOGO_PATH))
         st.html("<h1 style='text-align:center'>inversql</h1>")
 
 
-def _load_tables(csvs: list[up_man.UploadedFile]) -> list[SourceRelation]:
+def _load_tables(csvs: list[up_man.UploadedFile]) -> dict[str, pd.DataFrame]:
     "Load the tables as our representation."
 
     if not csvs:
-        return []
+        return {}
 
-    tables: list[SourceRelation] = []
+    tables: dict[str, pd.DataFrame] = {}
     cols = st.columns(min(len(csvs), 4))
 
     for idx, file in enumerate(csvs):
@@ -53,16 +95,104 @@ def _load_tables(csvs: list[up_man.UploadedFile]) -> list[SourceRelation]:
 
         try:
             file.seek(0)
-            tables.append(SourceRelation(name, pd.read_csv(file)))
+            tables[name] = pd.read_csv(file)
         except Exception as exc:
             st.error(f"Could not read {file.name}: {exc}")
 
-    st.session_state.tables = tables
     return tables
 
 
-def _render_sql(*sql: str) -> None:
-    main, *candidates = sql
+def _render_table_tabs(*tables: SourceRelation):
+    if not tables:
+        st.info("No tables to show.")
+        return
+
+    for tab, table in zip(st.tabs([table.name for table in tables]), tables):
+        with tab:
+            _render_table(table)
+
+
+def _highlight_coords(df: pd.DataFrame, coords: cabc.Iterable[CellLoc]) -> pd.DataFrame:
+    style_df = pd.DataFrame("", index=df.index, columns=df.columns)
+
+    list_coords = list(coords)
+    row_coords = [c.row_idx for c in list_coords]
+    col_coords = [c.col_idx for c in list_coords]
+
+    style_df.iloc[row_coords, col_coords] = (
+        "background-color: #fff3bf; font-weight: bold;"
+    )
+    return style_df
+
+
+def _event_selection(event):
+    if result := getattr(event, "selection", None):
+        return result
+
+    if isinstance(event, dict):
+        return event.get("selection", {})
+
+    return {}
+
+
+def _toggle_cell(state: set[CellLoc], cell: CellLoc) -> None:
+    if cell in state:
+        state.remove(cell)
+    else:
+        state.add(cell)
+
+
+def _render_table(table: SourceRelation):
+    with SessState.get() as state:
+        return _render_table_stateless(state, table)
+
+
+def _render_table_stateless(state: SessState, table: SourceRelation):
+
+    data = table.data()
+    data_cols = list(data.columns)
+    event = st.dataframe(
+        data.style.apply(lambda _: _highlight_coords(data, table.cells), axis=None),
+        on_select="rerun",
+        selection_mode="multi-cell",
+        width="stretch",
+        height=320,
+    )
+
+    selection = event.get("selection", {})
+    cells = selection.get("cells", [])
+
+    for row, col in cells:
+        cell_loc = CellLoc(row_idx=row, col_idx=data_cols.index(col))
+        selected = state.cells[table.name]
+
+        _toggle_cell(selected, cell_loc)
+        if cell_loc in selected:
+            selected.remove(cell_loc)
+        else:
+            selected.add(cell_loc)
+
+
+def _make_sources(tables: dict[str, pd.DataFrame]) -> cabc.Generator[SourceRelation]:
+    state = SessState.fetch()
+
+    for name, df in tables.items():
+        yield SourceRelation(name, df, cells=state.cells.get(name, ()))
+
+
+def _gen_sql_and_render(*tables: SourceRelation) -> None:
+    if not tables:
+        st.info("No tables to show.")
+        return
+
+    if not any(any(table.cells) for table in tables):
+        st.info("Should perform a selection to see SQL.")
+        return
+
+    pipeline = Pipeline()
+    sqls = pipeline(*tables)
+
+    main, *candidates = sqls
     st.subheader("Generated SQL")
     st.code(main, "sql")
     st.subheader("Candidate SQL")
@@ -86,7 +216,6 @@ def _render_sql(*sql: str) -> None:
 
 
 if __name__ == "__main__":
-    pipeline = Pipeline()
 
     st.set_page_config("InverSQL", layout="wide", initial_sidebar_state="collapsed")
 
@@ -101,12 +230,16 @@ if __name__ == "__main__":
 
         st.caption(
             " · ".join(
-                f"{t.name}: {len(t.data())}x{len(t.data().columns)}" for t in tables
+                f"{name}: {len(table)}x{len(table.columns)}"
+                for name, table in tables.items()
             )
         )
 
     annotation_col, sql_col = st.columns([1.65, 1], gap="large")
-    sqls = pipeline(*st.session_state.tables)
+    sources = list(_make_sources(tables))
+
+    with annotation_col, st.container(border=True):
+        _render_table_tabs(*sources)
 
     with sql_col, st.container(border=True):
-        _render_sql(*sqls)
+        _gen_sql_and_render(*sources)
