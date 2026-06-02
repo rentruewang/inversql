@@ -173,6 +173,8 @@ class SourceRelation(Relation):
         df[marker] = False
         df.loc[self._row_idxs(), marker] = True
         assert df.notna().all().all(), "DataFrame contains NaN values!"
+
+        assert marker in df.columns
         return df
 
     @typing.override
@@ -357,7 +359,7 @@ class NumericDF:
 
         mappings: dict[str, dict[int, pd.Categorical]] = {}
 
-        # Convert the non numeric with categorical.
+        # Convert the non numeric with categorical (only string supported).
         for col in non_numeric_cols:
             df[col] = df[col].astype("category")
 

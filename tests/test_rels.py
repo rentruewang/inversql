@@ -26,7 +26,7 @@ def test_left_rel(left_rel: SourceRelation):
 
 
 def test_left_rel_has_marker(left_rel: SourceRelation):
-    assert ColRef.marker("join_left") in left_rel.to_pandas().columns
+    assert str(ColRef.marker("join_left")) in left_rel.to_pandas().columns
 
 
 def test_right_rel(right_rel: SourceRelation):
