@@ -82,10 +82,6 @@ class Expr(abc.ABC):
         "Convert to a `sympy.Expr`."
         raise NotImplementedError
 
-    @abc.abstractmethod
-    def to_sqlglot(self, terms: cabc.Sequence[str]):
-        raise NotImplementedError
-
 
 def simplify_expr(expr: Expr, /) -> Expr:
     return parse_sympy_expr(expr.to_sympy(simplify=True))
@@ -259,23 +255,20 @@ class CmpExpr(Expr):
         symbol = sympy.Symbol(feature_name(self.feat_idx))
         return self.cmp.sympy_type(symbol, self.threshold)
 
-    def to_sqlglot(self, terms: cabc.Sequence[str]):
+    def to_sqlglot(self, terms: list[str]):
         return self.cmp.op(sqlg_exp.column(terms[self.feat_idx]), self.threshold)
 
 
 class _AndOrExprMixin(Expr, abc.ABC):
     "Either AND / OR. They share a lot of utilities."
 
-    _OP_NAME: typing.ClassVar[str]
+    OP_NAME: typing.ClassVar[str]
     "The name of the binary operator."
 
-    _CLS_BIN_OP: typing.ClassVar[cabc.Callable[[typing.Any, typing.Any], typing.Any]]
-    "Binary version of `_CLS_OP`."
-
-    _CLS_OP: typing.ClassVar[cabc.Callable[[cabc.Iterable[bool]], bool]]
+    CLS_OP: typing.ClassVar[cabc.Callable[[cabc.Iterable[bool]], bool]]
     "Either `any` or `all`."
 
-    _SYMPY: typing.ClassVar[type[sympy.Expr]]
+    SYMPY_CLS: typing.ClassVar[type[sympy.Expr]]
     "Either `sympy.And` or `sympy.Or`."
 
     exprs: cabc.Sequence[Expr]
@@ -299,7 +292,7 @@ class _AndOrExprMixin(Expr, abc.ABC):
 
     @typing.override
     def __repr__(self) -> str:
-        return f" {self._OP_NAME} ".join(f"({expr})" for expr in self.exprs)
+        return f" {self.OP_NAME} ".join(f"({expr})" for expr in self.exprs)
 
     @typing.override
     def __invert__(self) -> Expr:
@@ -316,17 +309,13 @@ class _AndOrExprMixin(Expr, abc.ABC):
     def eval(self, sample: FloatArray) -> bool:
         children = [expr.eval(sample) for expr in self.exprs]
         assert all(c is not NotImplemented for c in children)
-        return type(self)._CLS_OP(children)
+        return type(self).CLS_OP(children)
 
     @typing.override
     def _to_sympy(self, simplify: bool) -> sympy.Expr:
         children = [expr.to_sympy(simplify) for expr in self.exprs]
         assert all(c is not NotImplemented for c in children)
-        return type(self)._SYMPY(*children)
-
-    def to_sqlglot(self, terms: cabc.Sequence[str]):
-        children = [expr.to_sqlglot(terms) for expr in self.exprs]
-        return functools.reduce(type(self)._CLS_BIN_OP, children)
+        return type(self).SYMPY_CLS(*children)
 
 
 def _invert_and_or(cls: type[_AndOrExprMixin], *exprs: Expr) -> Expr:
@@ -342,10 +331,10 @@ def _invert_and_or(cls: type[_AndOrExprMixin], *exprs: Expr) -> Expr:
 class AndExpr(_AndOrExprMixin):
     "`left & right` expression."
 
-    _OP_NAME = "&"
-    _CLS_BIN_OP: typing.ClassVar = operator.and_
-    _CLS_OP: typing.ClassVar = all
-    _SYMPY: typing.ClassVar = sympy.And
+    OP_NAME = "&"
+    CLS_BIN_OP: typing.ClassVar = operator.and_
+    CLS_OP: typing.ClassVar = all
+    SYMPY_CLS: typing.ClassVar = sympy.And
 
     def __init__(self, *exprs: Expr):
         super().__init__(*exprs)
@@ -356,10 +345,10 @@ class AndExpr(_AndOrExprMixin):
 class OrExpr(_AndOrExprMixin):
     "`left | right` expression."
 
-    _OP_NAME = "|"
-    _CLS_BIN_OP: typing.ClassVar = operator.or_
-    _CLS_OP: typing.ClassVar = any
-    _SYMPY: typing.ClassVar = sympy.Or
+    OP_NAME = "|"
+    CLS_BIN_OP: typing.ClassVar = operator.or_
+    CLS_OP: typing.ClassVar = any
+    SYMPY_CLS: typing.ClassVar = sympy.Or
 
     def __init__(self, *exprs: Expr):
         super().__init__(*exprs)

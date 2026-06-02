@@ -5,6 +5,7 @@
 import abc
 import dataclasses as dcls
 import functools
+import math
 import operator
 import typing
 from collections import abc as cabc
@@ -17,7 +18,7 @@ from sklearn import tree
 from sqlglot import exp as sqlg_exp
 from sqlglot import expressions as sqlg_expr
 
-from inversql.exprs import simplify_expr
+from inversql.exprs import AndExpr, CmpExpr, CmpOp, Expr, OrExpr, simplify_expr
 from inversql.trees import sklearn_binary_tree_to_nodes
 
 __all__ = [
@@ -77,6 +78,9 @@ class Relation(abc.ABC):
     """
     `Relation` is a relational construct with tracking info.
     """
+
+    def __str__(self):
+        return str(self.to_sqlglot())
 
     @abc.abstractmethod
     def to_sqlglot(self) -> sqlg_expr.Select:
@@ -356,24 +360,35 @@ class NumericDF:
         df = df.copy()
 
         non_numeric_cols = df.select_dtypes(exclude=["number"]).columns
-
-        mappings: dict[str, dict[int, pd.Categorical]] = {}
+        mappings: dict[str, list[str]] = {}
 
         # Convert the non numeric with categorical (only string supported).
         for col in non_numeric_cols:
-            df[col] = df[col].astype("category")
-
-            mappings[col] = {
-                code: category for code, category in enumerate(df[col].cat.categories)
-            }
-
-            df[col] = df[col].cat.codes
+            self._convert_str_columns(df, col, mappings)
 
         self._numeric = df
         "The dataframe that is all numeric."
 
-        self._mappings = mappings
-        "Mapping of column -> codes -> category."
+        self._rev_mappings = mappings
+        "Mapping of column -> list of categories (only strings)."
+
+    def _convert_str_columns(
+        self, df: pd.DataFrame, col: str, mappings: dict[str, list[str]]
+    ) -> None:
+        string_values: set[str] = set(df[col])
+
+        if not all(isinstance(val, str) for val in string_values):
+            raise NotImplementedError(
+                "Only string columns or numeric columns are now supported."
+            )
+
+        sorted_vaues = sorted(string_values)
+
+        string_idx = {string: idx for idx, string in enumerate(sorted_vaues)}
+        indices = [string_idx[string] for string in df[col]]
+
+        df[col] = indices
+        mappings[col] = sorted_vaues
 
     def numeric(self) -> pd.DataFrame:
         "Get the numeric version of the dataframe (pre computed)."
@@ -383,7 +398,7 @@ class NumericDF:
     def revert(self, num_df: pd.DataFrame) -> pd.DataFrame:
         "Revert the numeric dataframe to the ones with cateogies."
 
-        for column, code_category in self._mappings.items():
+        for column, code_category in self._rev_mappings.items():
             if column not in num_df:
                 continue
 
@@ -399,6 +414,44 @@ class NumericDF:
     def columns(self) -> pd.Index[str]:
         "Pass through the columns of underlying df."
         return self._numeric.columns
+
+    def expr_to_sqlglot(self, expr: Expr, terms: list[str]) -> sqlg_expr.Select:
+        # Visitor for AND / OR.
+        def _and_or_to_sqlglot(expr: AndExpr | OrExpr):
+            children = [self.expr_to_sqlglot(expr, terms) for expr in expr.exprs]
+            return functools.reduce(type(expr).CLS_BIN_OP, children)
+
+        # Visitor for CMP.
+        def _cmp_to_sqlglot(expr: CmpExpr):
+            cmp_op = expr.cmp
+            threshold: int | float | str = expr.threshold
+
+            if (feature := terms[expr.feat_idx]) in self._rev_mappings:
+                feature_map = self._rev_mappings[feature]
+
+                # Since this is categories, find the closest.
+                # E.g. >= 1.5, find >= 2.
+
+                match expr.cmp:
+                    case CmpOp.EQ | CmpOp.NE:
+                        cmp_op = expr.cmp
+                        threshold = feature_map[int(expr.threshold)]
+                    case CmpOp.GE | CmpOp.GT:
+                        cmp_op = CmpOp.GE
+                        threshold = feature_map[math.ceil(expr.threshold)]
+                    case CmpOp.LE | CmpOp.LT:
+                        cmp_op = CmpOp.LE
+                        threshold = feature_map[math.floor(expr.threshold)]
+
+            return cmp_op.op(sqlg_exp.column(terms[expr.feat_idx]), threshold)
+
+        match expr:
+            case AndExpr() | OrExpr():
+                return _and_or_to_sqlglot(expr)
+            case CmpExpr():
+                return _cmp_to_sqlglot(expr)
+            case _:
+                raise TypeError(f"Not supported {type(expr)=}.")
 
 
 @typing.final
@@ -418,8 +471,7 @@ class SkLearnTreeRelation(Relation):
 
         terms = [str(cl.ref()) for cl in ordered_labels]
         expr = simplify_expr(self._tree_node.truth_exprs())
-        criterion = expr.to_sqlglot(terms)
-
+        criterion = self._numeric_df.expr_to_sqlglot(expr, terms)
         return self.input.to_sqlglot().where(criterion)
 
     @property

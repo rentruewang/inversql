@@ -26,3 +26,4 @@ def test_binary_pipeline(
     for sql in pipeline(left_rel, right_rel):
         assert isinstance(sql, str)
         assert sql.startswith("SELECT")
+        breakpoint()
