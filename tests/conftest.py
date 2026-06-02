@@ -5,6 +5,8 @@ import pathlib
 import pandas as pd
 import pytest
 
+from inversql.rels import SourceRelation
+
 
 @pytest.fixture(params=range(42))
 def seed(request):
@@ -41,3 +43,13 @@ def join_right_csv(data: pathlib.Path):
 @pytest.fixture
 def join_right_df(join_right_csv: pathlib.Path):
     return pd.read_csv(join_right_csv)
+
+
+@pytest.fixture
+def left_rel(join_left_df: pd.DataFrame):
+    return SourceRelation("join_left", join_left_df)
+
+
+@pytest.fixture
+def right_rel(join_right_df: pd.DataFrame):
+    return SourceRelation("join_right", join_right_df)
