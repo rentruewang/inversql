@@ -1,5 +1,7 @@
 # Copyright (c) The InverSQL Authors - All Rights Reserved
 
+from inversql.pipelines import Pipeline
+import html
 import pathlib
 
 import pandas as pd
@@ -55,10 +57,37 @@ def _load_tables(csvs: list[up_man.UploadedFile]) -> list[SourceRelation]:
         except Exception as exc:
             st.error(f"Could not read {file.name}: {exc}")
 
+    st.session_state.tables = tables
     return tables
 
 
+def _render_sql(*sql: str) -> None:
+    main, *candidates = sql
+    st.subheader("Generated SQL")
+    st.code(main, "sql")
+    st.subheader("Candidate SQL")
+    for i, candidate in enumerate(candidates, 1):
+        with st.expander(f"Candidate {i}", expanded=i == 1):
+            st.html(
+                f"""
+                <div style="
+                    opacity: 0.55;
+                    font-family: monospace;
+                    background: #f6f8fa;
+                    padding: 10px;
+                    border-radius: 6px;
+                    white-space: pre;
+                    overflow-x: auto;
+                ">
+                {html.escape(candidate)}
+                </div>
+                """,
+            )
+
+
 if __name__ == "__main__":
+    pipeline = Pipeline()
+
     st.set_page_config("InverSQL", layout="wide", initial_sidebar_state="collapsed")
 
     _css()
@@ -67,20 +96,17 @@ if __name__ == "__main__":
     with st.container(border=True):
         st.subheader("Table Upload")
         uploaded = st.file_uploader("CSV files", "csv", accept_multiple_files=True)
-        tables = _load_tables(uploaded)
-        if not tables:
-            st.info("Using demo tables. Upload CSV files to annotate your own data.")
-            tables = _render_tables()
+        if not (tables := _load_tables(uploaded)):
+            st.info("Upload CSV files to annotate your own data.")
+
         st.caption(
-            " · ".join(f"{t.name}: {len(t.df)}x{len(t.df.columns)}" for t in tables)
+            " · ".join(
+                f"{t.name}: {len(t.data())}x{len(t.data().columns)}" for t in tables
+            )
         )
 
     annotation_col, sql_col = st.columns([1.65, 1], gap="large")
-    with annotation_col, st.container(border=True):
-        st.subheader("Table Annotation")
-        target = st.segmented_control("Selection type", _TARGETS, default="Cell")
-        target = str(target or "Cell")
-        must_have, must_not_have = _annotation_workbench(tables, target)
+    sqls = pipeline(*st.session_state.tables)
 
     with sql_col, st.container(border=True):
-        _render_sql(_mock_sql(tables, must_have, must_not_have))
+        _render_sql(*sqls)
