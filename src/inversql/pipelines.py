@@ -1,6 +1,7 @@
 # Copyright (c) The InverSQL Authors - All Rights Reserved
 
 import dataclasses as dcls
+from collections import abc as cabc
 
 from sklearn import tree
 
@@ -38,7 +39,7 @@ class Pipeline:
     joiner: Joiner = dcls.field(default_factory=default_joiners)
     "The joiner in the pipeline. Default to the `default_joiners` function."
 
-    def __call__(self, tables: dict[str, SourceRelation]):
+    def __call__(self, tables: dict[str, SourceRelation]) -> cabc.Generator[str]:
         for result in self.joiner(tables):
             clf = SkLearnTreeRelation(result, tree.DecisionTreeClassifier())
-            raise NotImplementedError
+            yield clf.sql().get_sql()

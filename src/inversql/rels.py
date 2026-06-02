@@ -5,6 +5,7 @@
 import abc
 import dataclasses as dcls
 import functools
+import operator
 import typing
 from collections import abc as cabc
 
@@ -15,6 +16,7 @@ from numpy import typing as npt
 from pypika import queries as ppq
 from sklearn import tree
 
+from inversql.exprs import simplify_expr
 from inversql.trees import sklearn_binary_tree_to_nodes
 
 __all__ = [
@@ -151,7 +153,11 @@ class SourceRelation(Relation):
         "Set of selected cells."
 
     def sql(self) -> ppq.QueryBuilder:
-        return pypika.Query.from_(self._name)
+        return pypika.Query.from_(self.pypika_table)
+
+    @property
+    def pypika_table(self) -> pypika.Table:
+        return pypika.Table(self.name)
 
     @property
     def name(self) -> str:
@@ -228,8 +234,44 @@ class JoinRelation(Relation):
     def sql(self) -> ppq.QueryBuilder:
         left_sql = self.left.sql()
         right_sql = self.right.sql()
-        # return left_sql.join(right_sql, self._pypika_join).on
-        raise NotImplementedError
+
+        # Cross does not need any keys.
+        if self.how == "cross":
+            return left_sql.join(right_sql).cross()
+
+        else:
+            crit = self._gen_crit()
+            return left_sql.join(right_sql, how=self._pypika_join).on(crit)
+
+    def _gen_crit(self):
+        tables = {key: src.pypika_table for key, src in self.sources.items()}
+
+        # Some helper functions here.
+        def _pypika_col(col: str):
+            ref = ColRef(*col.split("."))
+            return getattr(tables[ref.table], ref.column)
+
+        def _pypika_criterion(left: str, right: str) -> pypika.Criterion:
+            return _pypika_col(left) == _pypika_col(right)
+
+        # Handle the `str` case.
+        if isinstance(self.left_on, str):
+            assert isinstance(self.right_on, str)
+            criterion = _pypika_criterion(self.left_on, self.right_on)
+
+        # Handle the case where there are multiple join keys.
+        elif _is_tuple_str(self.left_on):
+            assert _is_tuple_str(self.right_on)
+            assert len(self.left_on) == len(self.right_on)
+            criterion = functools.reduce(
+                operator.and_,
+                [_pypika_criterion(l, r) for l, r in zip(self.left_on, self.right_on)],
+            )
+
+        else:
+            raise ValueError(
+                f"{self.left_on} or {self.right_on} invalid for join type {self.how}."
+            )
 
     @property
     def _pypika_join(self):
@@ -251,10 +293,9 @@ class JoinRelation(Relation):
         left = self._left._to_pandas()
         right = self._right._to_pandas()
 
-        left_on = _join_key(self.left.columns, self.left_on)
-        right_on = _join_key(self.right.columns, self.right_on)
-
-        return pd.merge(left, right, how=self.how, left_on=left_on, right_on=right_on)
+        return pd.merge(
+            left, right, how=self.how, left_on=self.left_on, right_on=self.right_on
+        )
 
     @property
     def columns(self) -> set[ColLabel]:
@@ -289,11 +330,15 @@ class JoinRelation(Relation):
 
     @property
     def left_on(self) -> _JoinKey:
-        return self._left_on
+        return _join_key(self.left.columns, self._left_on)
 
     @property
     def right_on(self) -> _JoinKey:
-        return self._right_on
+        return _join_key(self.right.columns, self._right_on)
+
+
+def _is_tuple_str(obj) -> typing.TypeIs[tuple[str, ...]]:
+    return isinstance(obj, tuple) and all(isinstance(elem, str) for elem in obj)
 
 
 def _join_key(cols: set[ColLabel], target: _JoinKey) -> _JoinKey:
@@ -372,8 +417,7 @@ class SkLearnTreeRelation(Relation):
         self._clf = clf
         self._save_node_expr()
 
-    def sql(self):
-        expr = self._tree_node.truth_exprs().to_sympy(simplify=True)
+    def sql(self) -> ppq.QueryBuilder:
         df_cols = self._numeric_df.columns
 
         cols_labels_ordered = {str(col.ref()): col for col in self.columns}
@@ -381,7 +425,11 @@ class SkLearnTreeRelation(Relation):
 
         ordered_labels = [cols_labels_ordered[c] for c in df_cols]
 
-        raise NotImplementedError
+        terms = [getattr(pypika.Table(cl.table), cl.column) for cl in ordered_labels]
+        expr = simplify_expr(self._tree_node.truth_exprs())
+        criterion = expr.to_pypika(terms)
+
+        return self.input.sql().where(criterion)
 
     @property
     def columns(self) -> set[ColLabel]:

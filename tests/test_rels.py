@@ -6,16 +6,6 @@ import pytest
 from inversql.rels import JoinRelation, NumericDF, Relation, SourceRelation
 
 
-@pytest.fixture
-def left_rel(join_left_df: pd.DataFrame):
-    return SourceRelation("join_left", join_left_df)
-
-
-@pytest.fixture
-def right_rel(join_right_df: pd.DataFrame):
-    return SourceRelation("join_right", join_right_df)
-
-
 @pytest.fixture(params=["inner", "cross"])
 def how(request: pytest.FixtureRequest):
     return request.param

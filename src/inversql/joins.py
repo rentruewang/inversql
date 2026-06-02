@@ -152,7 +152,13 @@ def shared_col_name_joiner(
     this explores the case of joining only a, only b, both a and b.
 
     So this would yield 2**n - 1 join results.
+
+    Only supports the cases when there are multiple tables.
+    Single table not allowed, since `cross_joiner` does it already.
     """
+
+    if len(sources) <= 1:
+        return
 
     same_cols = list(_same_column_names(sources.values()))
 
