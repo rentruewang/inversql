@@ -1,9 +1,8 @@
 # Copyright (c) The InverSQL Authors - All Rights Reserved
 
-from mdit_py_plugins.colon_fence import _render
 import collections
+import contextlib as ctxl
 import dataclasses as dcls
-import html
 import pathlib
 import typing
 from collections import abc as cabc
@@ -14,7 +13,6 @@ from streamlit.runtime import uploaded_file_manager as up_man
 
 from inversql.pipelines import Pipeline
 from inversql.rels import CellLoc, SourceRelation
-import contextlib as ctxl
 
 _LOGO_PATH = pathlib.Path(__file__).parent / "assets" / "logo.svg"
 
@@ -115,13 +113,8 @@ def _render_table_tabs(*tables: SourceRelation):
 def _highlight_coords(df: pd.DataFrame, coords: cabc.Iterable[CellLoc]) -> pd.DataFrame:
     style_df = pd.DataFrame("", index=df.index, columns=df.columns)
 
-    list_coords = list(coords)
-    row_coords = [c.row_idx for c in list_coords]
-    col_coords = [c.col_idx for c in list_coords]
-
-    style_df.iloc[row_coords, col_coords] = (
-        "background-color: #fff3bf; font-weight: bold;"
-    )
+    for row, col in coords:
+        style_df.iloc[row, col] = "background-color: #708090; font-weight: bold;"
     return style_df
 
 
@@ -144,7 +137,7 @@ def _toggle_cell(state: set[CellLoc], cell: CellLoc) -> None:
 
 def _render_table(table: SourceRelation):
     with SessState.get() as state:
-        return _render_table_stateless(state, table)
+        _render_table_stateless(state, table)
 
 
 def _render_table_stateless(state: SessState, table: SourceRelation):
@@ -154,9 +147,10 @@ def _render_table_stateless(state: SessState, table: SourceRelation):
     event = st.dataframe(
         data.style.apply(lambda _: _highlight_coords(data, table.cells), axis=None),
         on_select="rerun",
-        selection_mode="multi-cell",
+        selection_mode="single-cell",
         width="stretch",
         height=320,
+        key=table.name,
     )
 
     selection = event.get("selection", {})
@@ -167,10 +161,6 @@ def _render_table_stateless(state: SessState, table: SourceRelation):
         selected = state.cells[table.name]
 
         _toggle_cell(selected, cell_loc)
-        if cell_loc in selected:
-            selected.remove(cell_loc)
-        else:
-            selected.add(cell_loc)
 
 
 def _make_sources(tables: dict[str, pd.DataFrame]) -> cabc.Generator[SourceRelation]:
@@ -194,25 +184,25 @@ def _gen_sql_and_render(*tables: SourceRelation) -> None:
 
     main, *candidates = sqls
     st.subheader("Generated SQL")
-    st.code(main, "sql")
-    st.subheader("Candidate SQL")
-    for i, candidate in enumerate(candidates, 1):
-        with st.expander(f"Candidate {i}", expanded=i == 1):
-            st.html(
-                f"""
-                <div style="
-                    opacity: 0.55;
-                    font-family: monospace;
-                    background: #f6f8fa;
-                    padding: 10px;
-                    border-radius: 6px;
-                    white-space: pre;
-                    overflow-x: auto;
-                ">
-                {html.escape(candidate)}
-                </div>
-                """,
-            )
+    st.code(main, "sql", wrap_lines=True)
+    # st.subheader("Candidate SQL")
+    # for i, candidate in enumerate(candidates, 1):
+    #     with st.expander(f"Candidate {i}", expanded=i == 1):
+    #         st.html(
+    #             f"""
+    #             <div style="
+    #                 opacity: 0.55;
+    #                 font-family: monospace;
+    #                 background: #f6f8fa;
+    #                 padding: 10px;
+    #                 border-radius: 6px;
+    #                 white-space: pre;
+    #                 overflow-x: auto;
+    #             ">
+    #             {html.escape(candidate)}
+    #             </div>
+    #             """,
+    #         )
 
 
 if __name__ == "__main__":

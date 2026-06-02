@@ -42,4 +42,5 @@ class Pipeline:
     def __call__(self, *tables: SourceRelation) -> cabc.Generator[str]:
         for result in self.joiner(*tables):
             clf = SkLearnTreeRelation(result, tree.DecisionTreeClassifier())
-            yield clf.to_sqlglot().sql()
+            select = clf.to_sqlglot()
+            yield select.sql()
