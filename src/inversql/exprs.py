@@ -10,6 +10,7 @@ import typing
 from collections import abc as cabc
 
 import sympy
+from pypika import terms as ppt
 
 from inversql._utils import FloatArray
 
@@ -19,7 +20,6 @@ __all__ = [
     "CmpExpr",
     "AndExpr",
     "OrExpr",
-    "DontCareExpr",
     "feature_name",
     "parse_feature_name",
     "simplify_expr",
@@ -82,6 +82,10 @@ class Expr(abc.ABC):
         "Convert to a `sympy.Expr`."
         raise NotImplementedError
 
+    @abc.abstractmethod
+    def to_pypika(self, terms: cabc.Sequence[ppt.Term]) -> ppt.Term:
+        raise NotImplementedError
+
 
 def simplify_expr(expr: Expr, /) -> Expr:
     return parse_sympy_expr(expr.to_sympy(simplify=True))
@@ -133,31 +137,6 @@ def _is_expr_list(args, /) -> typing.TypeIs[cabc.Sequence[sympy.Expr]]:
     if any(not isinstance(arg, sympy.Expr) for arg in args):
         return False
     return True
-
-
-@expr_dcls
-class DontCareExpr(Expr):
-    """
-    Singalling the don't care values.
-
-    Evals to `NotImplemented` means `True` in `AND`, and `False` in `OR` (default values).
-    """
-
-    @typing.override
-    def __repr__(self) -> str:
-        return f"x"
-
-    @typing.override
-    def __invert__(self) -> Expr:
-        return self
-
-    @typing.override
-    def eval(self, sample: FloatArray) -> bool:
-        return NotImplemented
-
-    @typing.override
-    def _to_sympy(self, simplify: bool) -> sympy.Expr:
-        return NotImplemented
 
 
 class CmpOp(enum.StrEnum):
@@ -280,12 +259,18 @@ class CmpExpr(Expr):
         symbol = sympy.Symbol(feature_name(self.feat_idx))
         return self.cmp.sympy_type(symbol, self.threshold)
 
+    def to_pypika(self, terms: cabc.Sequence[ppt.Term]) -> ppt.Term:
+        return self.cmp.op(terms[self.feat_idx], self.threshold)
 
-class _AndOrExpr(Expr, abc.ABC):
+
+class _AndOrExprMixin(Expr, abc.ABC):
     "Either AND / OR. They share a lot of utilities."
 
     _OP_NAME: typing.ClassVar[str]
     "The name of the binary operator."
+
+    _CLS_BIN_OP: typing.ClassVar[cabc.Callable[[typing.Any, typing.Any], typing.Any]]
+    "Binary version of `_CLS_OP`."
 
     _CLS_OP: typing.ClassVar[cabc.Callable[[cabc.Iterable[bool]], bool]]
     "Either `any` or `all`."
@@ -324,23 +309,27 @@ class _AndOrExpr(Expr, abc.ABC):
         if type(self) != type(other):
             return NotImplemented
 
-        assert isinstance(other, _AndOrExpr)
+        assert isinstance(other, _AndOrExprMixin)
         return set(self.exprs) == set(other.exprs)
 
     @typing.override
     def eval(self, sample: FloatArray) -> bool:
         children = [expr.eval(sample) for expr in self.exprs]
-        children = [c for c in children if c is not NotImplemented]
+        assert all(c is not NotImplemented for c in children)
         return type(self)._CLS_OP(children)
 
     @typing.override
     def _to_sympy(self, simplify: bool) -> sympy.Expr:
         children = [expr.to_sympy(simplify) for expr in self.exprs]
-        children = [c for c in children if c is not NotImplemented]
+        assert all(c is not NotImplemented for c in children)
         return type(self)._SYMPY(*children)
 
+    def to_pypika(self, terms: cabc.Sequence[ppt.Term]) -> ppt.Term:
+        children = [expr.to_pypika(terms) for expr in self.exprs]
+        return functools.reduce(type(self)._CLS_BIN_OP, children)
 
-def _invert_and_or(cls: type[_AndOrExpr], *exprs: Expr) -> Expr:
+
+def _invert_and_or(cls: type[_AndOrExprMixin], *exprs: Expr) -> Expr:
     assert cls in [AndExpr, OrExpr]
 
     inverted = AndExpr if cls is OrExpr else OrExpr
@@ -350,10 +339,11 @@ def _invert_and_or(cls: type[_AndOrExpr], *exprs: Expr) -> Expr:
 
 @typing.final
 @expr_dcls
-class AndExpr(_AndOrExpr):
+class AndExpr(_AndOrExprMixin):
     "`left & right` expression."
 
     _OP_NAME = "&"
+    _CLS_BIN_OP: typing.ClassVar = operator.and_
     _CLS_OP: typing.ClassVar = all
     _SYMPY: typing.ClassVar = sympy.And
 
@@ -363,10 +353,11 @@ class AndExpr(_AndOrExpr):
 
 @typing.final
 @expr_dcls
-class OrExpr(_AndOrExpr):
+class OrExpr(_AndOrExprMixin):
     "`left | right` expression."
 
     _OP_NAME = "|"
+    _CLS_BIN_OP: typing.ClassVar = operator.or_
     _CLS_OP: typing.ClassVar = any
     _SYMPY: typing.ClassVar = sympy.Or
 

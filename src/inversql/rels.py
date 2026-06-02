@@ -10,7 +10,9 @@ from collections import abc as cabc
 
 import numpy as np
 import pandas as pd
+import pypika
 from numpy import typing as npt
+from pypika import queries as ppq
 from sklearn import tree
 
 from inversql.trees import sklearn_binary_tree_to_nodes
@@ -72,6 +74,14 @@ class Relation(abc.ABC):
     """
     `Relation` is a relational construct with tracking info.
     """
+
+    @abc.abstractmethod
+    def sql(self) -> ppq.QueryBuilder:
+        """
+        Return pypika objects.
+        """
+
+        raise NotImplementedError
 
     def data(self) -> pd.DataFrame:
         """
@@ -139,6 +149,9 @@ class SourceRelation(Relation):
 
         self._cells: set[tuple[int, int]] = set()
         "Set of selected cells."
+
+    def sql(self) -> ppq.QueryBuilder:
+        return pypika.Query.from_(self._name)
 
     @property
     def name(self) -> str:
@@ -211,6 +224,28 @@ class JoinRelation(Relation):
         self._how = how
         self._left_on = left_on
         self._right_on = right_on
+
+    def sql(self) -> ppq.QueryBuilder:
+        left_sql = self.left.sql()
+        right_sql = self.right.sql()
+        # return left_sql.join(right_sql, self._pypika_join).on
+        raise NotImplementedError
+
+    @property
+    def _pypika_join(self):
+        match self.how:
+            case "inner":
+                return pypika.JoinType.inner
+            case "outer":
+                return pypika.JoinType.outer
+            case "cross":
+                return pypika.JoinType.cross
+            case "left":
+                return pypika.JoinType.left
+            case "right":
+                return pypika.JoinType.right
+
+        raise RuntimeError("Unreachable")
 
     def _to_pandas(self) -> pd.DataFrame:
         left = self._left._to_pandas()
@@ -337,6 +372,17 @@ class SkLearnTreeRelation(Relation):
         self._clf = clf
         self._save_node_expr()
 
+    def sql(self):
+        expr = self._tree_node.truth_exprs().to_sympy(simplify=True)
+        df_cols = self._numeric_df.columns
+
+        cols_labels_ordered = {str(col.ref()): col for col in self.columns}
+        assert len(cols_labels_ordered) == len(self.columns)
+
+        ordered_labels = [cols_labels_ordered[c] for c in df_cols]
+
+        raise NotImplementedError
+
     @property
     def columns(self) -> set[ColLabel]:
         return self._input.columns
@@ -353,7 +399,7 @@ class SkLearnTreeRelation(Relation):
         num_df = self._numeric_df.numeric()
 
         self.clf.fit(np.asarray(num_df), self.row_labels())
-        self._node = sklearn_binary_tree_to_nodes(self.clf)
+        self._tree_node = sklearn_binary_tree_to_nodes(self.clf)
         self._predicted = self.clf.predict(np.asarray(num_df))
         assert np.all(self._predicted == self.row_labels())
 
@@ -398,3 +444,7 @@ class SelectRelation(Relation):
     @property
     def cols(self) -> tuple[str, ...]:
         return self._cols
+
+    def sql(self):
+        sql = self.input.sql()
+        return sql.select(*self.cols)

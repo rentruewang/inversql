@@ -58,7 +58,7 @@ def test_join_len(
         assert len(join_rel.data()) == len(left_rel.data()) * len(right_rel.data())
 
     else:
-        raise NotImplementedError("Not present in test cases.")
+        raise ValueError("Not present in test cases.")
 
 
 @pytest.fixture
