@@ -1,6 +1,7 @@
 # Copyright (c) The InverSQL Authors - All Rights Reserved
 
 import dataclasses as dcls
+import logging
 from collections import abc as cabc
 
 from sklearn import tree
@@ -14,6 +15,8 @@ from inversql.joins import (
 from inversql.rels import SkLearnTreeRelation, SourceRelation
 
 __all__ = ["default_joiners", "Pipeline"]
+
+LOGGER = logging.getLogger(__name__)
 
 
 def default_joiners():
@@ -41,6 +44,12 @@ class Pipeline:
 
     def __call__(self, *tables: SourceRelation) -> cabc.Generator[str]:
         for result in self.joiner(*tables):
-            clf = SkLearnTreeRelation(result, tree.DecisionTreeClassifier())
+            # If doing this failed, skip to the next one.
+            try:
+                clf = SkLearnTreeRelation(result, tree.DecisionTreeClassifier())
+            except Exception as e:
+                LOGGER.error("%s", e)
+                continue
+
             select = clf.to_sqlglot()
             yield select.sql()

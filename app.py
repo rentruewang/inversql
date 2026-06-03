@@ -187,16 +187,23 @@ def _gen_sql_and_render(*tables: SourceRelation) -> None:
     if full_tables:
         all_selected_str = ",".join([repr(table) for table in full_tables])
         st.info(
-            f"Table {all_selected_str} have all the columns selected. Impossible to form decision trees."
+            f"Table {all_selected_str} should have at least 1 empty row. Impossible to form decision trees."
         )
         return
 
     pipeline = Pipeline()
-    sqls = pipeline(*tables)
 
-    main, *candidates = sqls
+    if not (sqls := list(pipeline(*tables))):
+        st.error(
+            "No valid SQL generated. File an issue at https://github.com/rentruewang/inversql."
+        )
+        return
+
+    # Choose the shortest ones to display, drop the rest.
+    shortest, *_ = sorted(sqls, key=len)
+
     st.subheader("Generated SQL")
-    st.code(main, "sql", wrap_lines=True)
+    st.code(shortest, "sql", wrap_lines=True)
 
 
 if __name__ == "__main__":

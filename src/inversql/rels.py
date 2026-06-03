@@ -9,7 +9,6 @@ import math
 import operator
 import typing
 from collections import abc as cabc
-import collections
 
 import numpy as np
 import pandas as pd
