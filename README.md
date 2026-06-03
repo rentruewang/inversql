@@ -1,5 +1,8 @@
 # InverSQL
 
+# Demo
+
+![](./assets/tables-demo.gif)
 
 ```
 
