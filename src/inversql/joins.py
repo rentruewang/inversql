@@ -144,7 +144,7 @@ def cross_joiner(*sources: SourceRelation) -> cabc.Iterator[Relation]:
 
 
 def shared_col_name_joiner(
-    *sources: SourceRelation, limit: int = 100
+    *sources: SourceRelation, limit: int = 32
 ) -> cabc.Generator[Relation]:
     """
     Join 2 dataframes with their shared columns.
@@ -159,7 +159,7 @@ def shared_col_name_joiner(
 
     Args:
         *sources: The source relations.
-        limit: The maximum number of subsets to show.
+        limit: The maximum number of subsets to show. Default to 32.
     """
 
     if len(sources) <= 1:
