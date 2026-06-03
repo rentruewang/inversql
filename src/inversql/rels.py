@@ -18,7 +18,7 @@ from sklearn import tree
 from sqlglot import exp as sqlg_exp
 from sqlglot import expressions as sqlg_expr
 
-from inversql.exprs import AndExpr, CmpExpr, CmpOp, Expr, OrExpr, simplify_expr
+from inversql.exprs import AndExpr, CmpExpr, CmpOp, Expr, OrExpr
 from inversql.trees import sklearn_binary_tree_to_nodes
 
 __all__ = [
@@ -484,7 +484,8 @@ class SkLearnTreeRelation(Relation):
         ordered_labels = [cols_labels_ordered[c] for c in df_cols]
 
         terms = [str(cl.ref()) for cl in ordered_labels]
-        expr = simplify_expr(self._tree_node.truth_exprs())
+        expr = self._tree_node.truth_exprs()
+        # expr = simplify_expr(expr)
         criterion = self._numeric_df.expr_to_sqlglot(expr, terms)
         return self.input.to_sqlglot().where(criterion)
 

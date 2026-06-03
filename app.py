@@ -193,7 +193,10 @@ def _gen_sql_and_render(*tables: SourceRelation) -> None:
 
     pipeline = Pipeline()
 
-    if not (sqls := list(pipeline(*tables))):
+    with st.spinner("Crunching the nubmers...", show_time=True):
+        sqls = list(pipeline(*tables))
+
+    if not sqls:
         st.error(
             "No valid SQL generated. File an issue at https://github.com/rentruewang/inversql."
         )
