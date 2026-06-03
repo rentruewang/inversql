@@ -1,5 +1,10 @@
+![](./assets/logo.svg)
+
 # InverSQL
 
+# Demo
+
+![](./assets/tables-demo.gif)
 
 ```
 

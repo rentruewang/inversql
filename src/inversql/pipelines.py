@@ -4,8 +4,9 @@ import dataclasses as dcls
 import logging
 from collections import abc as cabc
 
-from sklearn import tree
 import sqlglot
+from sklearn import tree
+
 from inversql.joins import (
     Joiner,
     JoinerList,
