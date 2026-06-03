@@ -33,6 +33,7 @@ def formatting(session: nox.Session):
     autoflake(session)
     isort(session)
     black(session)
+    lock(session)
 
 
 @nox.session
@@ -80,6 +81,11 @@ def _cmd(session: nox.Session, command: str, check: bool):
 @nox.session
 def mypy(session: nox.Session):
     _ = pdm(session).run("mypy", "--install-types", "--non-interactive", "src")
+
+
+@nox.session
+def lock(session: nox.Session):
+    session.run("pdm", "export", "-o", "requirements.txt", "--without-hashes")
 
 
 @nox.session
