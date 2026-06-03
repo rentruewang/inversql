@@ -69,7 +69,6 @@ def _header() -> None:
     with center:
         assert _LOGO_PATH.exists()
         st.image(str(_LOGO_PATH))
-        st.html("<h1 style='text-align:center'>inversql</h1>")
 
 
 def _load_tables(csvs: list[up_man.UploadedFile]) -> dict[str, pd.DataFrame]:
