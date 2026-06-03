@@ -174,8 +174,21 @@ def _gen_sql_and_render(*tables: SourceRelation) -> None:
         st.info("No tables to show.")
         return
 
+    # Nothing is select, no SQL can be generated.
     if not any(any(table.cells) for table in tables):
         st.info("Should perform a selection to see SQL.")
+        return
+
+    # A full column is selected, cannot generate SQL.
+    full_tables: list[str] = [
+        table.name for table in tables if table.columns_all_selected()
+    ]
+
+    if full_tables:
+        all_selected_str = ",".join([repr(table) for table in full_tables])
+        st.info(
+            f"Table {all_selected_str} have all the columns selected. Impossible to form decision trees."
+        )
         return
 
     pipeline = Pipeline()

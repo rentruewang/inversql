@@ -9,6 +9,7 @@ import math
 import operator
 import typing
 from collections import abc as cabc
+import collections
 
 import numpy as np
 import pandas as pd
@@ -98,7 +99,7 @@ class Relation(abc.ABC):
         """
 
         df = self.to_pandas()
-        df = df[[str(c.ref()) for c in self.columns]]
+        df = df[sorted(str(c.ref()) for c in self.columns)]
 
         return df.reset_index(drop=True)
 
@@ -196,6 +197,11 @@ class SourceRelation(Relation):
     @typing.override
     def _sources(self):
         yield self
+
+    def columns_all_selected(self) -> bool:
+        df = self.data()
+        rows = {row for row, _ in self.cells}
+        return len(rows) == len(df)
 
     @property
     @typing.override
