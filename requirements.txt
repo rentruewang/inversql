@@ -136,3 +136,4 @@ watchdog==6.0.0; platform_system != "Darwin"
 wcwidth==0.7.0
 websockets==16.0
 xgboost==3.2.0
+.  # this package

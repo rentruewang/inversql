@@ -1,115 +1,146 @@
 # Copyright (c) InverSQL Authors - All Rights Reserved
 
+import contextlib as ctxl
 import dataclasses as dcls
 import functools
 import os
+from collections import abc as cabc
 
 import nox
 
-
-@nox.session
-def publish(session: nox.Session):
-    pdm(session).publish()
+_session: nox.Session | None = None
+"The global shared session."
 
 
-@nox.session
-def build(session: nox.Session):
-    pdm(session).build()
+def get_session() -> nox.Session:
+    "Get the session set by `set_session`."
+
+    assert _session
+    return _session
 
 
-@nox.session
-def pre_commit(session: nox.Session):
-    formatting(session)
-    typing(session)
+@ctxl.contextmanager
+def set_session(sess: nox.Session):
+    "Set the session used by `get_session`."
+
+    global _session
+    before, _session = _session, sess
+
+    try:
+        yield sess
+    finally:
+        _session = before
 
 
-@nox.session
-def testing(session: nox.Session):
-    _ = pdm(session).run("pytest", *session.posargs)
+def nox_session(function: cabc.Callable[[], None]) -> cabc.Callable[[], None]:
+
+    @functools.wraps(function)
+    def wrapper(session: nox.Session):
+        with set_session(session):
+            return function()
+
+    _ = nox.session(wrapper)
+
+    return function
 
 
-@nox.session
-def formatting(session: nox.Session):
-    autoflake(session)
-    isort(session)
-    black(session)
-    lock(session)
+@nox_session
+def publish():
+    Pdm().publish()
 
 
-@nox.session
-def formatting_check(session: nox.Session):
-    autoflake_check(session)
-    isort_check(session)
-    black_check(session)
+@nox_session
+def build():
+    Pdm().build()
 
 
-@nox.session
-def autoflake(session: nox.Session):
-    _cmd(session, "autoflake", False)
+@nox_session
+def pre_commit():
+    formatting()
+    typing()
 
 
-@nox.session
-def autoflake_check(session: nox.Session):
-    _cmd(session, "autoflake", True)
+@nox_session
+def testing():
+    _ = Pdm().run("pytest", *get_session().posargs)
 
 
-@nox.session
-def isort(session: nox.Session):
-    _cmd(session, "isort", False)
+@nox_session
+def formatting():
+    autoflake()
+    isort()
+    black()
+    lock()
 
 
-@nox.session
-def isort_check(session: nox.Session):
-    _cmd(session, "isort", True)
+@nox_session
+def formatting_check():
+    autoflake_check()
+    isort_check()
+    black_check()
 
 
-@nox.session
-def black(session: nox.Session):
-    _cmd(session, "black", False)
+@nox_session
+def autoflake():
+    _cmd("autoflake", False)
 
 
-@nox.session
-def black_check(session: nox.Session):
-    _cmd(session, "black", True)
+@nox_session
+def autoflake_check():
+    _cmd("autoflake", True)
 
 
-def _cmd(session: nox.Session, command: str, check: bool):
+@nox_session
+def isort():
+    _cmd("isort", False)
+
+
+@nox_session
+def isort_check():
+    _cmd("isort", True)
+
+
+@nox_session
+def black():
+    _cmd("black", False)
+
+
+@nox_session
+def black_check():
+    _cmd("black", True)
+
+
+def _cmd(command: str, check: bool):
     check_flag = ["--check"] if check else []
-    _ = pdm(session).run(command, *check_flag, ".")
+    _ = Pdm().run(command, *check_flag, ".")
 
 
-@nox.session
-def mypy(session: nox.Session):
-    _ = pdm(session).run("mypy", "--install-types", "--non-interactive", "src")
+@nox_session
+def mypy():
+    _ = Pdm().run("mypy", "--install-types", "--non-interactive", "src")
 
 
-@nox.session
-def lock(session: nox.Session):
-    session.run("pdm", "export", "-o", "requirements.txt", "--without-hashes")
+@nox_session
+def lock():
+    get_session().run(
+        "pdm",
+        "export",
+        "-o",
+        "requirements.txt",
+        "--without-hashes",
+        "--self",
+        external=True,
+    )
 
 
-@nox.session
-def typing(session: nox.Session):
-    mypy(session)
-
-
-@functools.cache
-def github(session: nox.Session):
-    return _Github(session)
-
-
-@functools.cache
-def pdm(session: nox.Session):
-    "Global singleton of `pdm`."
-    return _Pdm(session)
+@nox_session
+def typing():
+    mypy()
 
 
 @dcls.dataclass(frozen=True)
-class _Github:
+class Github:
     "The manager for setting up github."
-
-    session: nox.Session
-    "The nox session to use."
 
     @functools.cache
     def setup(self) -> None:
@@ -123,7 +154,7 @@ class _Github:
         self._log_storage_usage()
 
     def _run(self, *args: str):
-        self.session.run_install(*args, external=True)
+        get_session().run_install(*args, external=True)
 
     def _remove_unwanted_files(self) -> None:
         "Remove the files GitHub Actions pre-installed."
@@ -156,15 +187,13 @@ class _Github:
 
 
 @dcls.dataclass(frozen=True)
-class _Pdm:
+class Pdm:
     "The manager for running `pdm` commands."
 
-    session: nox.Session
-
     def __post_init__(self):
-        github(self.session).setup()
+        Github().setup()
 
-        if _is_remote(self.session):
+        if _is_remote():
             self._run("pdm", "config", "python.use_venv", "true")
 
     def sync(self) -> None:
@@ -187,14 +216,14 @@ class _Pdm:
 
     def _sync_or_install(self, mode: str) -> None:
         # Don't repeatedly reinstall locally.
-        if not _is_remote(self.session):
+        if not _is_remote():
             return
 
-        self.session.run_install("pdm", mode, "-G:all")
+        get_session().run_install("pdm", mode, "-G:all")
 
     def _run(self, *args: str):
-        self.session.run(*args, external=True)
+        get_session().run(*args, external=True)
 
 
-def _is_remote(session: nox.Session):
-    return github(session).active()
+def _is_remote():
+    return Github().active()
