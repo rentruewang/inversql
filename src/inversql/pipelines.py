@@ -1,5 +1,6 @@
 # Copyright (c) The InverSQL Authors - All Rights Reserved
 
+import pyinstrument
 import dataclasses as dcls
 import logging
 from collections import abc as cabc

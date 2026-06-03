@@ -1,5 +1,6 @@
 # Copyright (c) The InverSQL Authors - All Rights Reserved
 
+import itertools
 import dataclasses as dcls
 import functools
 import typing
@@ -142,7 +143,9 @@ def cross_joiner(*sources: SourceRelation) -> cabc.Iterator[Relation]:
     yield functools.reduce(cross_join, sources)
 
 
-def shared_col_name_joiner(*sources: SourceRelation) -> cabc.Generator[Relation]:
+def shared_col_name_joiner(
+    *sources: SourceRelation, limit: int = 100
+) -> cabc.Generator[Relation]:
     """
     Join 2 dataframes with their shared columns.
 
@@ -153,6 +156,10 @@ def shared_col_name_joiner(*sources: SourceRelation) -> cabc.Generator[Relation]
 
     Only supports the cases when there are multiple tables.
     Single table not allowed, since `cross_joiner` does it already.
+
+    Args:
+        *sources: The source relations.
+        limit: The maximum number of subsets to show.
     """
 
     if len(sources) <= 1:
@@ -160,7 +167,8 @@ def shared_col_name_joiner(*sources: SourceRelation) -> cabc.Generator[Relation]
 
     same_cols = list(_same_column_names(sources))
 
-    for subset in all_subsets(same_cols):
+    # Using the zip to limit how many subsets we want.
+    for _, subset in zip(range(limit), all_subsets(same_cols)):
         if not subset:
             continue
 
@@ -191,6 +199,6 @@ def all_subsets(sequence: cabc.Sequence[str]) -> cabc.Generator[list[str]]:
 
     *drop_last, last = sequence
 
-    for subsets in all_subsets(drop_last):
-        yield subsets
-        yield [*subsets, last]
+    for cnt in reversed(range(0, len(sequence) + 1)):
+        for combo in itertools.combinations(sequence, cnt):
+            yield list(combo)
