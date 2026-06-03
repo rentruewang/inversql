@@ -5,7 +5,7 @@ import pathlib
 import pandas as pd
 import pytest
 
-from inversql.rels import SourceRelation
+from inversql.rels import CellLoc, SourceRelation
 
 
 @pytest.fixture(params=range(42))
@@ -47,9 +47,9 @@ def join_right_df(join_right_csv: pathlib.Path):
 
 @pytest.fixture
 def left_rel(join_left_df: pd.DataFrame):
-    return SourceRelation("join_left", join_left_df)
+    return SourceRelation("join_left", join_left_df, cells=[CellLoc(0, 1)])
 
 
 @pytest.fixture
 def right_rel(join_right_df: pd.DataFrame):
-    return SourceRelation("join_right", join_right_df)
+    return SourceRelation("join_right", join_right_df, cells=[CellLoc(1, 1)])
