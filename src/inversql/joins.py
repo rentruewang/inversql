@@ -1,8 +1,8 @@
 # Copyright (c) The InverSQL Authors - All Rights Reserved
 
-import itertools
 import dataclasses as dcls
 import functools
+import itertools
 import typing
 from collections import abc as cabc
 
