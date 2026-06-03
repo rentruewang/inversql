@@ -1,3 +1,5 @@
+![](./assets/logo.svg)
+
 # InverSQL
 
 # Demo
