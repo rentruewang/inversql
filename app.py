@@ -202,8 +202,8 @@ def _gen_sql_and_render(*tables: SourceRelation) -> None:
     # Choose the shortest ones to display, drop the rest.
     shortest, *_ = sorted(sqls, key=len)
 
-    st.subheader("Generated SQL")
-    st.code(shortest, "sql", wrap_lines=True)
+    st.html("<h3>Shortest SQL for the selected cells</h3>")
+    st.code(shortest, "sql")
 
 
 if __name__ == "__main__":

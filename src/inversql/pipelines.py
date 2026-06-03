@@ -5,7 +5,7 @@ import logging
 from collections import abc as cabc
 
 from sklearn import tree
-
+import sqlglot
 from inversql.joins import (
     Joiner,
     JoinerList,
@@ -52,4 +52,8 @@ class Pipeline:
                 continue
 
             select = clf.to_sqlglot()
-            yield select.sql()
+            generated = select.sql()
+
+            parsed = sqlglot.parse_one(generated)
+            formatted_sql = parsed.sql(pretty=True)
+            yield formatted_sql
