@@ -40,5 +40,9 @@ Or if you have too much cash at hand: [![BuyMeACoffee](https://raw.githubusercon
   <img src="https://contrib.rocks/image?repo=rentruewang/inversql" />
 </a>
 
+Contribution welcome!
+
+To contribute, refer to [CONTRIBUTING.md](./CONTRIBUTING.md),
+and our [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
 
 [demo]: https://inversql.streamlit.app
