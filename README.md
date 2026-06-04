@@ -17,8 +17,8 @@
 <a id="demo-gif"></a>
 |             🎬 Demo in a GIF              |             🏛️ Architecture             |
 | :--------------------------------------: | :------------------------------------: |
-|   [![](./assets/quick-demo.gif)][demo]   |     ![](./assets/architecture.svg)     |
 | Click on the GIF for the live demo site! | The architecture made with excalidraw. |
+|   [![](./assets/quick-demo.gif)][demo]   |     ![](./assets/architecture.svg)     |
 
 ## 🌟 Give us a star!
 
