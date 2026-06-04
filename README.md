@@ -12,7 +12,15 @@
 <a id="inversql"></a> <h1> 🔄 InverSQL </h1>
 </div>
 
-## Generate SQL that match a set of records by decomposing decision trees
+## Generate SQL that match a set of records by decomposing decision trees (explainable AI)
+
+1. User uploads CSV to [streamlit app][demo]
+2. User selects cells (that will be selected by the SQL).
+3. We overfit the tree on the data.
+4. We decompose the tree and generate boolean logic for what user selected.
+5. We simplify the logic with `sympy`.
+6. User sees the SQL. User is happy.
+7. Profit.
 
 <a id="demo-gif"></a>
 |             🎬 Demo in a GIF              |             🏛️ Architecture             |
@@ -49,5 +57,9 @@ Contribution welcome!
 
 To contribute, refer to [CONTRIBUTING.md](./CONTRIBUTING.md),
 and our [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
+
+### 🎨 Inspiration.
+
+Inspired by [regexgen](https://github.com/devongovett/regexgen#how-does-it-work)'s process. Instead of regex we do SQL. Instead of selecting text we do select records. Decision tree is my inspiration tho.
 
 [demo]: https://inversql.streamlit.app
