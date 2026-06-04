@@ -20,6 +20,8 @@ Click on the GIF for the live demo site!
 
 ### 🏛️ Architecture
 
+![](./assets/architecture.svg)
+
 ### 🌟 Give us a star!
 
 That's pretty much it!
