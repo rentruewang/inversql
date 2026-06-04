@@ -63,7 +63,7 @@ This will keep my motivation going!
 
 Or if you have too much cash at hand: [![BuyMeACoffee](https://raw.githubusercontent.com/pachadotdev/buymeacoffee-badges/main/bmc-yellow.svg)](https://www.buymeacoffee.com/rentruewang)
 
-> If you **REALLY** like my work, nowadays I'm working on [`aioway`](https://github.com/rentruewang/aioway), it's a compiler approach to deep learning, check it out!
+> If you **REALLY** like my work, nowadays I'm working on [`aioway`](https://github.com/rentruewang/aioway), it's an optimizing compiler approach to deep learning, check it out!
 
 ### 👨‍👨‍👦‍👦 Contributors
 
