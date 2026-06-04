@@ -1,6 +1,5 @@
 <div align="center">
 <img src="./assets/logo.svg">
-</div>
 
 [![Unit Testing](https://github.com/rentruewang/inversql/actions/workflows/unittest.yaml/badge.svg)](https://github.com/rentruewang/inversql/actions/workflows/unittest.yaml)
 [![Pre Commit Checks](https://github.com/rentruewang/inversql/actions/workflows/precommit.yaml/badge.svg)](https://github.com/rentruewang/inversql/actions/workflows/precommit.yaml)
@@ -10,7 +9,6 @@
 ![MIT](https://img.shields.io/badge/license-MIT-blue)
 [![](https://img.shields.io/badge/-Streamlit-FF4B4B?style=flat&logo=streamlit&logoColor=white)][demo]
 
-<div align="center">
 <a id="inversql"></a> <h1> 🔄 InverSQL </h1>
 </div>
 
