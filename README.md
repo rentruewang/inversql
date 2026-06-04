@@ -1,6 +1,8 @@
 <div align="center">
 <img src="./assets/logo.svg">
 
+<br>
+
 [![Unit Testing](https://github.com/rentruewang/inversql/actions/workflows/unittest.yaml/badge.svg)](https://github.com/rentruewang/inversql/actions/workflows/unittest.yaml)
 [![Pre Commit Checks](https://github.com/rentruewang/inversql/actions/workflows/precommit.yaml/badge.svg)](https://github.com/rentruewang/inversql/actions/workflows/precommit.yaml)
 [![Publish](https://github.com/rentruewang/inversql/actions/workflows/release.yaml/badge.svg)](https://github.com/rentruewang/inversql/actions/workflows/release.yaml)
@@ -12,7 +14,7 @@
 <a id="inversql"></a> <h1> 🔄 InverSQL </h1>
 </div>
 
-## Generate SQL that match a set of records by decomposing decision trees
+## Generate SQL that match your selection, with decision trees
 
 1. User doesn't want to write SQL.
 2. User uploads CSV to [inversql streamlit app][demo]
