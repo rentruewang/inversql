@@ -23,11 +23,24 @@
 7. Profit.
 
 <a id="demo-gif"></a>
-| <div style="width:290px">🎬 Demo in a GIF </div> |             🏛️ Architecture             |
-| :---------------------------------------------: | :------------------------------------: |
-|    Click on the GIF for the live demo site!     | The architecture made with excalidraw. |
-|      [![](./assets/quick-demo.gif)][demo]       |     ![](./assets/architecture.svg)     |
-
+<table>
+  <tr>
+    <th width="64%">🎬 Demo in a GIF</th>
+    <th width="36%">🏛️ Architecture</th>
+  </tr>
+  <tr>
+    <td align="center">
+      <p>Click on the GIF for the live demo site!</p>
+      <a href="https://inversql.streamlit.app">
+        <img src="./assets/quick-demo.gif" alt="Quick Demo" width="100%" />
+      </a>
+    </td>
+    <td align="center">
+      <p>The architecture made with Excalidraw.</p>
+      <img src="./assets/architecture.svg" alt="Architecture Diagram" width="100%" />
+    </td>
+  </tr>
+</table>
 ## 🏎️ Performance
 
 For each individual SQL query candidate (the shortest one is displayed in the UI), we need to retrain a new decision tree.
