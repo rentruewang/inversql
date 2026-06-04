@@ -23,10 +23,10 @@
 7. Profit.
 
 <a id="demo-gif"></a>
-|             🎬 Demo in a GIF              |             🏛️ Architecture             |
-| :--------------------------------------: | :------------------------------------: |
-| Click on the GIF for the live demo site! | The architecture made with excalidraw. |
-|   [![](./assets/quick-demo.gif)][demo]   |     ![](./assets/architecture.svg)     |
+| <div style="width:290px">🎬 Demo in a GIF </div> |             🏛️ Architecture             |
+| :---------------------------------------------: | :------------------------------------: |
+|    Click on the GIF for the live demo site!     | The architecture made with excalidraw. |
+|      [![](./assets/quick-demo.gif)][demo]       |     ![](./assets/architecture.svg)     |
 
 ## 🏎️ Performance
 
