@@ -32,6 +32,13 @@ Or if you have too much cash at hand: [![BuyMeACoffee](https://raw.githubusercon
 
 > If you **REALLY** like my work, nowadays I'm working on [`aioway`](https://github.com/rentruewang/aioway), it's a compiler approach to deep learning, check it out!
 
+## 🏎️ Performance
+
+For each individual SQL query candidate (the shortest one is displayed in the UI), we need to retrain a new decision tree.
+
+But...
+The decision tree fitting is honestly fast, don't worry about this.
+
 ### 👨‍👨‍👦‍👦 Contributors
 
 <a href="https://github.com/rentruewang/inversql/graphs/contributors">
