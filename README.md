@@ -26,10 +26,8 @@ That's pretty much it!
 If you have read this far, please consider giving me a star (⭐) or a fork (🍴).
 This will keep my motivation going!
 
-Or if you have too much cash at hand:
+Or if you have too much cash at hand: [![BuyMeACoffee](https://raw.githubusercontent.com/pachadotdev/buymeacoffee-badges/main/bmc-yellow.svg)](https://www.buymeacoffee.com/rentruewang)
 
-[![BuyMeACoffee](https://raw.githubusercontent.com/pachadotdev/buymeacoffee-badges/main/bmc-yellow.svg)](https://www.buymeacoffee.com/rentruewang)
-
-> If you REALLY like my work, nowadays I'm working on [`aioway`](https://github.com/rentruewang/aioway)
+> If you **REALLY** like my work, nowadays I'm working on [`aioway`](https://github.com/rentruewang/aioway), it's a compiler approach to deep learning, check it out!
 
 [demo]: https://inversql.streamlit.app
