@@ -41,6 +41,7 @@
     </td>
   </tr>
 </table>
+
 ## 🏎️ Performance
 
 For each individual SQL query candidate (the shortest one is displayed in the UI), we need to retrain a new decision tree.
