@@ -14,15 +14,25 @@
 
 ## Generate SQL that match a set of records by decomposing decision trees
 
+<div class="row">
+<div class="column">
+
 ### <a id="demo-gif"></a> 🎬 Demo in a GIF
 
 Click on the GIF for the live demo site!
+
+</div>
+<div class="column">
+
 
 [![](./assets/quick-demo.gif)][demo]
 
 ### 🏛️ Architecture
 
 ![](./assets/architecture.svg)
+</div>
+
+</div>
 
 ## 🌟 Give us a star!
 
