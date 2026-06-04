@@ -31,14 +31,17 @@
   </tr>
   <tr>
     <td align="center">
-      <a href="https://inversql.streamlit.app">
         <img src="./assets/quick-demo.gif" alt="Quick Demo" width="100%" />
-      </a>
-      <figcaption>Click on the GIF for the live demo site!</figcation>
+      <figcaption>
+        Link to
+        <a href="https://inversql.streamlit.app">
+          live demo site
+        </a>
+        here.
+      </figcation>
     </td>
     <td align="center">
       <img src="./assets/architecture.svg" alt="Architecture Diagram" width="100%" />
-      <figcaption>Click to enlarge</figcaption>
     </td>
   </tr>
 </table>
