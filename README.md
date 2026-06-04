@@ -12,11 +12,11 @@
 <a id="inversql"></a> <h1> 🔄 InverSQL </h1>
 </div>
 
-## Generate SQL that match a set of records by decomposing decision trees (explainable AI)
+## Generate SQL that match a set of records by decomposing decision trees
 
 1. User uploads CSV to [streamlit app][demo]
 2. User selects cells (that will be selected by the SQL).
-3. We overfit the tree on the data.
+3. We overfit the tree on the data. (yes this is explainable AI).
 4. We decompose the tree and generate boolean logic for what user selected.
 5. We simplify the logic with `sympy`.
 6. User sees the SQL. User is happy.
