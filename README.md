@@ -14,37 +14,11 @@
 
 ### <a id="demo-gif"></a> 🎬 Demo in a GIF
 
-![](./assets/quick-demo.gif)
+Click on the GIF for the live demo site!
 
-### Architecture
+[![](./assets/quick-demo.gif)][demo]
 
-```
-
-    +--------------+                    +-----------------+
-    |  Controller  | <----------------- | Display to User |
-    +------+-------+                    +--------+--------+
-           |                                     |
-    Process Input (CSV)           Returns Processed Data/SQL
-           |                                     |
-           V                                     |
-    +--------------------------------------------+---------+
-    |                        MODEL                         |
-    |                                                      |
-    |               [ Feature Extraction ]                 |
-    |               (Joins based on stats)                 |
-    |                         |                            |
-    |                         |                            |
-    |                         V                            |
-    |               [ Run Decision Tree ]                  |
-    |                         |                            |
-    |                         V                            |
-    |             [ Decompose Decision Tree ]              |
-    |                         |                            |
-    |                         V                            |
-    |             [ Simplify / Optimize SQL ]              |
-    |                                                      |
-    +------------------------------------------------------+
-```
+### 🏛️ Architecture
 
 ### 🌟 Like and subscribe!
 
