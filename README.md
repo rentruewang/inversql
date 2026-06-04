@@ -20,8 +20,9 @@
 4. We **overfit** a `scikit-learn` binary decision tree on the data.
 5. We decompose the tree, convert to boolean logic (explainable AI part).
 6. We simplify the logic with `sympy`.
-7. User sees the SQL.
-8. User is happy.
+7. Generate SQL from previous steps (joins to JOIN and boolean to WHERE).
+8. User sees the SQL.
+9. User is happy.
 
 <a id="demo-gif"></a>
 <table>
