@@ -1,0 +1,7 @@
+.cover {
+    background: #ffffff !important;
+}
+
+.cover::before {
+    background: rgba(255, 255, 255, 0.5) !important;
+}
