@@ -20,9 +20,11 @@ Click on the GIF for the live demo site!
 
 ### 🏛️ Architecture
 
-### 🌟 Like and subscribe!
+### 🌟 Give us a star!
 
-That's pretty much it! If you have read this far, please consider giving me a star (⭐) or a fork (🍴). This will keep my motivation going!
+That's pretty much it!
+If you have read this far, please consider giving me a star (⭐) or a fork (🍴).
+This will keep my motivation going!
 
 Or if you have too much cash at hand:
 
