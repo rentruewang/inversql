@@ -22,10 +22,10 @@ To install all dependencies (including development dependencies) with `pdm`, run
 pdm install -G:all
 ```
 
-Alternatively, use of `pip` is also allowed (although might be less robust due to lack of version solving)
+Alternatively, use of `pip` is also allowed (although might be less robust due to lack of version solving), and the dependencies are frozen in `requirements.txt` (managed by `pdm` and `nox` commands).
 
 ```bash
-pip install -e .
+pip install -r requirements.txt
 ```
 
 Both commands result in an editable installation.
