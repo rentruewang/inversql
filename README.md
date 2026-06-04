@@ -27,7 +27,7 @@
 <table>
   <tr>
     <th width="64%">🎬 Demo in a GIF</th>
-    <th width="36%">🏛️ Architecture</th>
+    <th width="36%">🏛️ Architecture diagram</th>
   </tr>
   <tr>
     <td align="center">
