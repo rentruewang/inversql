@@ -15,6 +15,7 @@ from inversql.pipelines import Pipeline
 from inversql.rels import CellLoc, SourceRelation
 
 _LOGO_PATH = pathlib.Path(__file__).parent / "assets" / "logo.svg"
+_REPO_LINK = "https://github.com/rentruewang/inversql"
 
 
 @dcls.dataclass
@@ -68,7 +69,7 @@ def _header() -> None:
     _, center, _ = st.columns([2.2, 1, 2.2])
     with center:
         assert _LOGO_PATH.exists()
-        st.image(str(_LOGO_PATH))
+        st.image(str(_LOGO_PATH), link=_REPO_LINK)
 
 
 def _load_tables(csvs: list[up_man.UploadedFile]) -> dict[str, pd.DataFrame]:
