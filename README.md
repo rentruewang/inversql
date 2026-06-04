@@ -28,6 +28,13 @@
 | Click on the GIF for the live demo site! | The architecture made with excalidraw. |
 |   [![](./assets/quick-demo.gif)][demo]   |     ![](./assets/architecture.svg)     |
 
+## 🏎️ Performance
+
+For each individual SQL query candidate (the shortest one is displayed in the UI), we need to retrain a new decision tree.
+
+But...
+The decision tree fitting is honestly fast, don't worry about this.
+
 ## 🌟 Give us a star!
 
 That's pretty much it!
@@ -39,13 +46,6 @@ This will keep my motivation going!
 Or if you have too much cash at hand: [![BuyMeACoffee](https://raw.githubusercontent.com/pachadotdev/buymeacoffee-badges/main/bmc-yellow.svg)](https://www.buymeacoffee.com/rentruewang)
 
 > If you **REALLY** like my work, nowadays I'm working on [`aioway`](https://github.com/rentruewang/aioway), it's a compiler approach to deep learning, check it out!
-
-## 🏎️ Performance
-
-For each individual SQL query candidate (the shortest one is displayed in the UI), we need to retrain a new decision tree.
-
-But...
-The decision tree fitting is honestly fast, don't worry about this.
 
 ### 👨‍👨‍👦‍👦 Contributors
 
