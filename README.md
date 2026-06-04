@@ -1,4 +1,5 @@
-![](./assets/logo.svg)
+<center>
+<img src="./assets/logo.svg">
 
 [![Unit Testing](https://github.com/rentruewang/inversql/actions/workflows/unittest.yaml/badge.svg)](https://github.com/rentruewang/inversql/actions/workflows/unittest.yaml)
 [![Pre Commit Checks](https://github.com/rentruewang/inversql/actions/workflows/precommit.yaml/badge.svg)](https://github.com/rentruewang/inversql/actions/workflows/precommit.yaml)
@@ -9,6 +10,7 @@
 [![](https://img.shields.io/badge/-Streamlit-FF4B4B?style=flat&logo=streamlit&logoColor=white)][demo]
 
 # <a id="inversql"></a> 🔄 InverSQL
+</center>
 
 ## Generate SQL that match a set of records by decomposing decision trees
 
@@ -22,7 +24,7 @@ Click on the GIF for the live demo site!
 
 ![](./assets/architecture.svg)
 
-### 🌟 Give us a star!
+## 🌟 Give us a star!
 
 That's pretty much it!
 If you have read this far, please consider giving me a star (⭐) or a fork (🍴).
@@ -31,5 +33,12 @@ This will keep my motivation going!
 Or if you have too much cash at hand: [![BuyMeACoffee](https://raw.githubusercontent.com/pachadotdev/buymeacoffee-badges/main/bmc-yellow.svg)](https://www.buymeacoffee.com/rentruewang)
 
 > If you **REALLY** like my work, nowadays I'm working on [`aioway`](https://github.com/rentruewang/aioway), it's a compiler approach to deep learning, check it out!
+
+### 👨‍👨‍👦‍👦 Contributors
+
+<a href="https://github.com/rentruewang/inversql/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=rentruewang/inversql" />
+</a>
+
 
 [demo]: https://inversql.streamlit.app
