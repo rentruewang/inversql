@@ -19,8 +19,8 @@
 3. We overfit the tree on the data. (yes this is explainable AI).
 4. We decompose the tree and generate boolean logic for what user selected.
 5. We simplify the logic with `sympy`.
-6. User sees the SQL. User is happy.
-7. Profit.
+6. User sees the SQL.
+7. User is happy.
 
 <a id="demo-gif"></a>
 <table>
