@@ -17,7 +17,7 @@
 1. User doesn't want to write SQL.
 2. User uploads CSV to [inversql streamlit app][demo]
 3. User selects cells (that will be selected by the SQL).
-4. We overfit the tree on the data. (yes this is explainable AI).
+4. We overfit a `scikit-learn` binary decision tree on the data. (yes this is explainable AI).
 5. We decompose the tree and generate boolean logic for what user selected.
 6. We simplify the logic with `sympy`.
 7. User sees the SQL.
