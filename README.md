@@ -30,14 +30,14 @@
   </tr>
   <tr>
     <td align="center">
-      <p>Click on the GIF for the live demo site!</p>
       <a href="https://inversql.streamlit.app">
         <img src="./assets/quick-demo.gif" alt="Quick Demo" width="100%" />
       </a>
+      <figcaption>Click on the GIF for the live demo site!</figcation>
     </td>
     <td align="center">
-      <p>The architecture made with Excalidraw.</p>
       <img src="./assets/architecture.svg" alt="Architecture Diagram" width="100%" />
+      <figcaption>Click to enlarge</figcaption>
     </td>
   </tr>
 </table>
