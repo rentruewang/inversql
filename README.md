@@ -28,4 +28,6 @@ Or if you have too much cash at hand:
 
 [![BuyMeACoffee](https://raw.githubusercontent.com/pachadotdev/buymeacoffee-badges/main/bmc-yellow.svg)](https://www.buymeacoffee.com/rentruewang)
 
+> If you REALLY like my work, nowadays I'm working on [`aioway`](https://github.com/rentruewang/aioway)
+
 [demo]: https://inversql.streamlit.app
