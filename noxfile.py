@@ -124,6 +124,14 @@ def mypy():
 def lock():
     get_session().run(
         "pdm",
+        "lock",
+        "--refresh",
+        "--strategy",
+        "inherit_metadata",
+    )
+
+    get_session().run(
+        "pdm",
         "export",
         "-o",
         "requirements.txt",
