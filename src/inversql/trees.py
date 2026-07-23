@@ -286,12 +286,12 @@ def _process_prediction(value: FloatArray) -> tuple[BoolArray, BoolArray]:
 
     value = value.squeeze(1)
 
-    prediction = np.argmax(value, axis=-1)
-    assert np.all((prediction == 0) | (prediction == 1))
-    prediction = prediction.astype(bool)
+    pred_int = np.argmax(value, axis=-1)
+    assert np.all((pred_int == 0) | (pred_int == 1))
+    pred: BoolArray = pred_int.astype(bool)
 
     # All 0 or 1 guarantees to be one-hot, as it always sums to 1.
-    is_one_hot = np.all((value == 0) | (value == 1), axis=-1)
+    is_one_hot: BoolArray = np.all((value == 0) | (value == 1), axis=-1)
 
-    assert len(prediction) == len(is_one_hot), "Sanity check failed."
-    return prediction, is_one_hot
+    assert len(pred) == len(is_one_hot), "Sanity check failed."
+    return pred, is_one_hot
