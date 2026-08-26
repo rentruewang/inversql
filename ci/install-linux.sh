@@ -1,7 +1,7 @@
-# Copyright (c) AIoWay Authors - All Rights Reserved
+# Copyright (c) InverSQL Authors - All Rights Reserved
 
-apt-get update
+sudo apt-get update
 
-command -v pipx || apt-get install pipx -y
+command -v pipx || sudo apt-get install pipx -y
 
 command -v pdm || pipx install pdm

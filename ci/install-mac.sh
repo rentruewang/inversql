@@ -1,4 +1,4 @@
-# Copyright (c) AIoWay Authors - All Rights Reserved
+# Copyright (c) InverSQL Authors - All Rights Reserved
 
 command -v brew || /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
