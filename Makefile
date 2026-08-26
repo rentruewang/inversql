@@ -9,11 +9,11 @@ SUDO := sudo -E
 
 # Running in GitHub Actions
 ifeq ($(GITHUB_ACTIONS),true)
-    SH := python3 ci/group-actions.py bash
-	CLEANUP := $(SUDO) $(SH) ci/cleanup-github.sh
+    SH := python3 ci/group-actions.py
+	CLEANUP := $(SUDO) $(SH) bash ci/cleanup-github.sh
 # Running locally
 else
-    SH := bash
+    SH :=
 	CLEANUP :=
 endif
 
@@ -26,9 +26,9 @@ deps:
 	@echo "Installing dependencies for $(OS)"
 
 ifeq ($(OS),Linux)
-	$(SUDO) $(SH) ci/install-linux.sh
+	$(SUDO) $(SH) bash ci/install-linux.sh
 else ifeq ($(OS),Darwin)
-	$(SH) ci/install-mac.sh
+	$(SH) bash ci/install-mac.sh
 else
 	@echo "Unsupported OS: $(OS)"
 	@exit 1
