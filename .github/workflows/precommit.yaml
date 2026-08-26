@@ -19,7 +19,7 @@ jobs:
           cache: true
 
       - name: 🪄 Formatting
-        run: make cleanup install autoflake isort black CHECK=1
+        run: make setup autoflake isort black CHECK=1
 
   type:
     name: 👨‍⚕️ Type Checking
@@ -39,4 +39,4 @@ jobs:
           cache: true
 
       - name: ⌨️ Type checking
-        run: make cleanup install mypy
+        run: make setup mypy

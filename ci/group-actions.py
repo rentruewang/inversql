@@ -17,7 +17,7 @@ def group_by_stage(stage: str):
         print(f"::endgroup::", flush=True)
 
 
-def launch_proc_and_print(command: list[str], stage: str):
+def launch_in_group(command: list[str], stage: str):
     # Set columns to current terminal size - indent.
     env = {**os.environ, **term_size_env()}
 
@@ -40,4 +40,4 @@ def term_size_env() -> dict[str, str]:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     args, command = parser.parse_known_args()
-    launch_proc_and_print(command, stage=" ".join(command))
+    launch_in_group(command, stage=" ".join(command))

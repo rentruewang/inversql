@@ -17,32 +17,46 @@ else
 	CLEANUP :=
 endif
 
+setup: cleanup deps install
+
 cleanup:
 	$(CLEANUP)
 
+deps:
+	@echo "Installing dependencies for $(OS)"
+
+ifeq ($(OS),Linux)
+	$(SUDO) $(SH) ci/install-linux.sh
+else ifeq ($(OS),Darwin)
+	$(SH) ci/install-mac.sh
+else
+	@echo "Unsupported OS: $(OS)"
+	@exit 1
+endif
+
 publish:
-	$(SH) ci/pdm.sh publish
+	$(SH) pdm publish
 
 build:
-	$(SH) ci/pdm.sh build
+	$(SH) pdm build
 
 install:
-	$(SH) ci/pdm.sh install "-G:all"
+	$(SH) pdm install "-G:all"
 
 sync:
-	$(SH) ci/pdm.sh sync "-G:all"
+	$(SH) pdm sync "-G:all"
 
 pytest:
-	$(SH) ci/pdm.sh run pytest $(PYTEST_FLAGS)
+	$(SH) pdm run pytest $(PYTEST_FLAGS)
 
 autoflake:
-	$(SH) ci/pdm.sh run autoflake . $(CHECK_FLAG)
+	$(SH) pdm run autoflake . $(CHECK_FLAG)
 
 black:
-	$(SH) ci/pdm.sh run black . $(CHECK_FLAG)
+	$(SH) pdm run black . $(CHECK_FLAG)
 
 isort:
-	$(SH) ci/pdm.sh run isort . $(CHECK_FLAG)
+	$(SH) pdm run isort . $(CHECK_FLAG)
 
 mypy:
-	$(SH) ci/pdm.sh run mypy --install-types --non-interactive src
+	$(SH) pdm run mypy --install-types --non-interactive src
