@@ -1,4 +1,4 @@
-# Copyright (c) The InverSQL Authors - All Rights Reserved
+# Copyright (c) InverSQL Authors - All Rights Reserved
 
 import collections
 import contextlib as ctxl
@@ -55,14 +55,16 @@ class SessState:
 
 
 def _css() -> None:
-    st.html("""
+    st.html(
+        """
         <style>
         section[data-testid="stSidebar"], div[data-testid="collapsedControl"] {display:none;}
         .block-container {max-width:1500px; padding-top:5rem;}
         h1, h2, h3 {letter-spacing:0;}
         textarea {font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;}
         </style>
-        """)
+        """
+    )
 
 
 def _header() -> None:
