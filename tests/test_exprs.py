@@ -1,4 +1,4 @@
-# Copyright (c) The InverSQL Authors - All Rights Reserved
+# Copyright (c) InverSQL Authors - All Rights Reserved
 
 import pytest
 
