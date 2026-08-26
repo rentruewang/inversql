@@ -17,12 +17,16 @@ def group_by_stage(stage: str):
         print(f"::endgroup::", flush=True)
 
 
-def launch_in_group(command: list[str], stage: str):
+def launch_in_group(command: list[str], stage: str) -> int:
     # Set columns to current terminal size - indent.
     env = {**os.environ, **term_size_env()}
 
     with group_by_stage(stage=stage):
-        subprocess.run(command, env=env, stdout=sys.stdout, stderr=sys.stdout)
+        completed = subprocess.run(
+            command, env=env, stdout=sys.stdout, stderr=sys.stdout
+        )
+
+    return completed.returncode
 
 
 def term_size_env() -> dict[str, str]:
@@ -40,4 +44,5 @@ def term_size_env() -> dict[str, str]:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     args, command = parser.parse_known_args()
-    launch_in_group(command, stage=" ".join(command))
+    exit_code = launch_in_group(command, stage=" ".join(command))
+    raise SystemExit(exit_code)
