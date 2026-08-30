@@ -33,8 +33,10 @@ __all__ = [
     "NumericDF",
 ]
 
-type _SupportedJoinTypes = typing.Literal["left", "right", "inner", "cross"]
-type _JoinKey = str | tuple[str, ...] | None
+_SupportedJoinTypes: typing.TypeAlias = typing.Literal[
+    "left", "right", "inner", "cross"
+]
+_JoinKey: typing.TypeAlias = str | tuple[str, ...] | None
 
 _ROW_MARKER = "__inversql_selected__"
 

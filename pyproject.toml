@@ -23,8 +23,8 @@ license = "MIT"
 version = "0.1.0"
 
 [build-system]
-requires = ["setuptools", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["pdm-backend", "setuptools", "cython", "gitpython"]
+build-backend = "pdm.backend"
 
 [dependency-groups]
 dev = [
@@ -42,6 +42,9 @@ dev = [
     "ipykernel>=7.2.0",
     "matplotlib>=3.10.9",
     "jupytext>=1.19.3",
+    "cython>=3.3.0",
+    "setuptools>=84.0.0",
+    "gitpython>=3.1.61",
 ]
 
 [tool.autoflake]
@@ -84,3 +87,7 @@ filterwarnings = [
 testpaths = [
     "tests",
 ]
+
+[tool.pdm.build]
+run-setuptools = true
+
