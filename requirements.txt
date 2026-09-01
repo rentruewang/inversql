@@ -122,7 +122,7 @@ textual==8.2.8
 threadpoolctl==3.6.0
 tokenize-rt==6.2.0
 toml==0.10.2
-tornado==6.5.7
+tornado==6.5.8
 traitlets==5.15.1
 typing-extensions==4.16.0
 tzdata==2026.3
