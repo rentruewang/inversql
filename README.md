@@ -66,7 +66,11 @@ This will keep my motivation going!
 
 Or if you have too much cash at hand: [![BuyMeACoffee](https://raw.githubusercontent.com/pachadotdev/buymeacoffee-badges/main/bmc-yellow.svg)](https://www.buymeacoffee.com/rentruewang)
 
-> If you **REALLY** like my work, nowadays I'm working on [`aioway`](https://github.com/rentruewang/aioway), it's an optimizing compiler approach to deep learning, check it out!
+> If you **REALLY** like my work, nowadays I'm working on [`aioway`](https://github.com/rentruewang/aioway),
+> it's an automated training and inference engine that does the following:
+> 1. Adapt to hardware it runs on (optimal hardware usage)
+> 2. Adapt to data it trains on (figure out architecture on its own)
+> 3. Adapt to signals received in training (never overfit or underfit)
 
 ### 👨‍👨‍👦‍👦 Contributors
 
