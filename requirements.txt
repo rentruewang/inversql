@@ -116,7 +116,7 @@ traitlets==5.16.1
 typing-extensions==4.16.0
 tzdata==2026.3; sys_platform == "emscripten" or sys_platform == "win32"
 uc-micro-py==2.0.0
-urllib3==2.7.0
+urllib3==2.8.0
 uvicorn==0.52.4
 watchdog==6.0.0
 wcwidth==0.8.2
