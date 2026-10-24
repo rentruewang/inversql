@@ -98,7 +98,7 @@ rich==15.0.0
 rpds-py==2026.6.3
 scikit-learn==1.9.0
 scipy==1.18.1
-setuptools==84.0.0
+setuptools==84.1.0
 six==1.17.0
 smmap==5.0.3
 sqlglot==30.17.0
